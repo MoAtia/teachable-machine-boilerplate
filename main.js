@@ -15,24 +15,27 @@
 import "@babel/polyfill";
 import * as mobilenetModule from '@tensorflow-models/mobilenet';
 import * as tf from '@tensorflow/tfjs';
-import * as knnClassifier from '@tensorflow-models/knn-classifier';
 
 // Number of classes to classify
-const NUM_CLASSES = 3;
+const NUM_CLASSES = 4;
 // Webcam Image size. Must be 227. 
 const IMAGE_SIZE = 227;
-// K value for KNN
-const TOPK = 10;
 
 
 class Main {
   constructor() {
     // Initiate variables
     this.infoTexts = [];
-    this.training = -1; // -1 when no class is being trained
+    this.training = -1; // -1 when no class is being captured
     this.videoPlaying = false;
+    this.exampleCounts = new Array(NUM_CLASSES).fill(0);
+    this.trainXs = [];
+    this.trainYs = [];
+    this.model = null;
+    this.modelTrained = false;
+    this.embeddingSize = null;
 
-    // Initiate deeplearn.js math and knn classifier objects
+    // Initiate the page (load mobilenet, etc.)
     this.bindPage();
 
     // Create video element that will contain the webcam image
@@ -51,7 +54,7 @@ class Main {
 
       // Create training button
       const button = document.createElement('button')
-      button.innerText = "Train " + i;
+      button.innerText = "Capture class " + i;
       div.appendChild(button);
 
       // Listen for mouse events when clicking the button
@@ -64,6 +67,22 @@ class Main {
       div.appendChild(infoText);
       this.infoTexts.push(infoText);
     }
+
+    // Global training button
+    const trainDiv = document.createElement('div');
+    trainDiv.style.marginTop = '16px';
+    const trainBtn = document.createElement('button');
+    trainBtn.innerText = 'Train Model';
+    trainDiv.appendChild(trainBtn);
+    this.trainStatus = document.createElement('span');
+    this.trainStatus.style.marginLeft = '8px';
+    this.trainStatus.innerText = ' Idle';
+    trainDiv.appendChild(this.trainStatus);
+    document.body.appendChild(trainDiv);
+
+    trainBtn.addEventListener('click', async () => {
+      await this.trainModel();
+    });
 
 
     // Setup webcam
@@ -79,10 +98,42 @@ class Main {
   }
 
   async bindPage() {
-    this.knn = knnClassifier.create();
     this.mobilenet = await mobilenetModule.load();
 
+    // Build the classifier model (two dense layers)
+    this.buildModel();
+
     this.start();
+  }
+
+  buildModel() {
+    // We will determine input size after first embedding; for now create a placeholder model
+    // and rebuild when we know embedding size.
+    this.model = null;
+  }
+
+  ensureModel(embeddingSize) {
+    if (this.model && this.embeddingSize === embeddingSize) {
+      return;
+    }
+    this.embeddingSize = embeddingSize;
+    this.model = tf.sequential();
+    this.model.add(tf.layers.dense({
+      inputShape: [this.embeddingSize],
+      units: 128,
+      activation: 'relu',
+      kernelInitializer: 'varianceScaling'
+    }));
+    this.model.add(tf.layers.dense({
+      units: NUM_CLASSES,
+      activation: 'softmax',
+      kernelInitializer: 'varianceScaling'
+    }));
+    this.model.compile({
+      optimizer: tf.train.adam(0.001),
+      loss: 'categoricalCrossentropy',
+      metrics: ['accuracy']
+    });
   }
 
   start() {
@@ -107,37 +158,51 @@ class Main {
       // 'conv_preds' is the logits activation of MobileNet.
       const infer = () => this.mobilenet.infer(image, 'conv_preds');
 
-      // Train class if one of the buttons is held down
+      // Capture examples if one of the buttons is held down
       if (this.training != -1) {
         logits = infer();
-
-        // Add current image to classifier
-        this.knn.addExample(logits, this.training)
+        const emb = logits.as2D(1, -1);
+        const size = emb.shape[1];
+        this.ensureModel(size);
+        // Store example and label
+        this.trainXs.push(emb.clone());
+        this.trainYs.push(tf.oneHot(tf.tensor1d([this.training]).toInt(), NUM_CLASSES));
+        this.exampleCounts[this.training] += 1;
       }
 
-      const numClasses = this.knn.getNumClasses();
-      if (numClasses > 0) {
+      const totalExamples = this.exampleCounts.reduce((a, b) => a + b, 0);
+      if (this.modelTrained) {
 
-        // If classes have been added run predict
+        // If the model is trained run predict
         logits = infer();
-        const res = await this.knn.predictClass(logits, TOPK);
+        const emb = logits.as2D(1, -1);
+        const preds = this.model.predict(emb);
+        const probs = await preds.data();
+        const classIndex = probs.indexOf(Math.max(...probs));
+        preds.dispose();
+        emb.dispose();
 
         for (let i = 0; i < NUM_CLASSES; i++) {
-
-          // The number of examples for each class
-          const exampleCount = this.knn.getClassExampleCount();
-
           // Make the predicted class bold
-          if (res.classIndex == i) {
+          if (classIndex == i) {
             this.infoTexts[i].style.fontWeight = 'bold';
           } else {
             this.infoTexts[i].style.fontWeight = 'normal';
           }
 
           // Update info text
-          if (exampleCount[i] > 0) {
-            this.infoTexts[i].innerText = ` ${exampleCount[i]} examples - ${res.confidences[i] * 100}%`
+          if (this.exampleCounts[i] > 0) {
+            const pct = (probs[i] * 100).toFixed(1);
+            this.infoTexts[i].innerText = ` ${this.exampleCounts[i]} examples - ${pct}%`
+          } else {
+            this.infoTexts[i].innerText = ` 0 examples`;
           }
+        }
+      } else if (totalExamples > 0) {
+        // Update example counts while collecting (no prediction yet)
+        for (let i = 0; i < NUM_CLASSES; i++) {
+          this.infoTexts[i].style.fontWeight = 'normal';
+          this.infoTexts[i].innerText = ` ${this.exampleCounts[i]} examples`;
         }
       }
 
@@ -148,6 +213,46 @@ class Main {
       }
     }
     this.timer = requestAnimationFrame(this.animate.bind(this));
+  }
+
+  async trainModel() {
+    if (this.trainXs.length === 0) {
+      this.trainStatus.innerText = ' No examples to train on';
+      return;
+    }
+    this.trainStatus.innerText = ' Preparing data...';
+    await tf.nextFrame();
+
+    // Stack examples
+    const xs = tf.concat(this.trainXs, 0);
+    const ys = tf.concat(this.trainYs, 0);
+
+    // Free per-example tensors
+    this.trainXs.forEach(t => t.dispose());
+    this.trainYs.forEach(t => t.dispose());
+    this.trainXs = [];
+    this.trainYs = [];
+
+    this.trainStatus.innerText = ' Training...';
+    const batchSize = Math.min(32, xs.shape[0]);
+    const epochs = 20;
+    await this.model.fit(xs, ys, {
+      batchSize,
+      epochs,
+      shuffle: true,
+      callbacks: {
+        onEpochEnd: async (epoch, logs) => {
+          this.trainStatus.innerText = ` Training epoch ${epoch + 1}/${epochs} - loss: ${logs.loss.toFixed(3)} acc: ${logs.acc !== undefined ? logs.acc.toFixed(3) : (logs.accuracy || 0).toFixed(3)}`;
+          await tf.nextFrame();
+        }
+      }
+    });
+
+    xs.dispose();
+    ys.dispose();
+
+    this.modelTrained = true;
+    this.trainStatus.innerText = ' Trained';
   }
 }
 
