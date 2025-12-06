@@ -23,6 +23,7 @@ const IMAGE_SIZE = 227;
 
 
 class Main {
+
   constructor() {
     // Initiate variables
     this.infoTexts = [];
@@ -34,6 +35,13 @@ class Main {
     this.model = null;
     this.modelTrained = false;
     this.embeddingSize = null;
+    this.capturedDataset = {};
+    this.trainDataset = {};
+    this.model = null;
+
+    this.canvas = document.getElementById("canvas");
+    this.ctx = canvas.getContext("2d");
+
 
     // Initiate the page (load mobilenet, etc.)
     this.bindPage();
@@ -42,6 +50,7 @@ class Main {
     this.video = document.createElement('video');
     this.video.setAttribute('autoplay', '');
     this.video.setAttribute('playsinline', '');
+    this.video.style.transform = 'scaleX(-1)'; // Flip the video horizontally
 
     // Add video element to DOM
     document.body.appendChild(this.video);
@@ -80,10 +89,24 @@ class Main {
     trainDiv.appendChild(this.trainStatus);
     document.body.appendChild(trainDiv);
 
+
+    const saveModeldiv = document.createElement('div');
+    saveModeldiv.style.marginTop = '16px';
+    const saveModelBtn = document.createElement('button');
+    saveModelBtn.innerText = 'Save Model';
+    saveModeldiv.appendChild(saveModelBtn);
+    document.body.appendChild(saveModeldiv);
+
+
+
+
     trainBtn.addEventListener('click', async () => {
       await this.trainModel();
     });
 
+    saveModelBtn.addEventListener('click', async () => {
+      await await this.model.save('file://./tfjs_output');
+    });
 
     // Setup webcam
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
@@ -101,18 +124,20 @@ class Main {
     this.mobilenet = await mobilenetModule.load();
 
     // Build the classifier model (two dense layers)
-    this.buildModel();
+    // this.buildModel();
 
     this.start();
   }
 
-  buildModel() {
-    // We will determine input size after first embedding; for now create a placeholder model
-    // and rebuild when we know embedding size.
-    this.model = null;
-  }
+  // buildModel() {
+  //   // We will determine input size after first embedding; for now create a placeholder model
+  //   // and rebuild when we know embedding size.
+  //   this.model = null;
+  // }
+
 
   ensureModel(embeddingSize) {
+
     if (this.model && this.embeddingSize === embeddingSize) {
       return;
     }
@@ -136,6 +161,7 @@ class Main {
     });
   }
 
+
   start() {
     if (this.timer) {
       this.stop();
@@ -144,43 +170,81 @@ class Main {
     this.timer = requestAnimationFrame(this.animate.bind(this));
   }
 
+
   stop() {
     this.video.pause();
     cancelAnimationFrame(this.timer);
   }
 
+
+  addToDict(key, value) {
+    if (!this.capturedDataset[key]) {
+      this.capturedDataset[key] = [];   // create list if not exists
+    }
+    this.capturedDataset[key].push(value);
+  }
+
+
+  async test(image){
+    // console.log("Video frame tensor shape:", image);
+    let logits;
+
+    // 'conv_preds' is the logits activation of MobileNet.
+    const infer = () => this.mobilenet.infer(image, 'conv_preds');
+
+    logits = infer();
+    const emb = logits.as2D(1, -1);
+    const preds = this.model.predict(emb);
+    const probs = await preds.data();
+    const classIndex = probs.indexOf(Math.max(...probs));
+    // preds.dispose();
+    // emb.dispose();
+
+    return {probs, classIndex};
+
+  }
+
+
   async animate() {
+
     if (this.videoPlaying) {
-      // Get image data from video element
+
+
       const image = tf.fromPixels(this.video);
 
+      // console.log("Video frame tensor shape:", image);
       let logits;
+
       // 'conv_preds' is the logits activation of MobileNet.
       const infer = () => this.mobilenet.infer(image, 'conv_preds');
 
       // Capture examples if one of the buttons is held down
       if (this.training != -1) {
-        logits = infer();
-        const emb = logits.as2D(1, -1);
-        const size = emb.shape[1];
-        this.ensureModel(size);
-        // Store example and label
-        this.trainXs.push(emb.clone());
-        this.trainYs.push(tf.oneHot(tf.tensor1d([this.training]).toInt(), NUM_CLASSES));
+
+        // Draw the video frame to the canvas
+        this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+
+        // Convert to image data or base64 image
+        const dataURL = this.canvas.toDataURL("image/png");
+
+        this.addToDict(this.training, dataURL);
         this.exampleCounts[this.training] += 1;
+
       }
 
       const totalExamples = this.exampleCounts.reduce((a, b) => a + b, 0);
+
       if (this.modelTrained) {
 
         // If the model is trained run predict
-        logits = infer();
-        const emb = logits.as2D(1, -1);
-        const preds = this.model.predict(emb);
-        const probs = await preds.data();
-        const classIndex = probs.indexOf(Math.max(...probs));
-        preds.dispose();
-        emb.dispose();
+        // logits = infer();
+        // const emb = logits.as2D(1, -1);
+        // const preds = this.model.predict(emb);
+        // const probs = await preds.data();
+        // const classIndex = probs.indexOf(Math.max(...probs));
+        // preds.dispose();
+        // emb.dispose();
+        const {probs, classIndex} = await this.test(image);
 
         for (let i = 0; i < NUM_CLASSES; i++) {
           // Make the predicted class bold
@@ -198,7 +262,8 @@ class Main {
             this.infoTexts[i].innerText = ` 0 examples`;
           }
         }
-      } else if (totalExamples > 0) {
+      }
+      else if (totalExamples > 0) {
         // Update example counts while collecting (no prediction yet)
         for (let i = 0; i < NUM_CLASSES; i++) {
           this.infoTexts[i].style.fontWeight = 'normal';
@@ -212,15 +277,89 @@ class Main {
         logits.dispose();
       }
     }
+
     this.timer = requestAnimationFrame(this.animate.bind(this));
   }
 
+
+
+
+  async imageBase64ToTensor(base64DataUrl) {
+    // 1. Create a new Image object
+    const img = new Image();
+    img.crossOrigin = "Anonymous"; // Handle potential CORS issues
+    
+    // 2. Wrap the onload in a Promise to handle asynchronous loading
+    const imgLoadPromise = new Promise((resolve, reject) => {
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+    });
+
+    // 3. Set the source to the Data URL
+    img.src = base64DataUrl;
+
+    // 4. Wait for the image to load
+    const loadedImg = await imgLoadPromise;
+
+    // 5. Convert the loaded image element into a tensor
+    const tensor = tf.fromPixels(loadedImg);
+    
+    // Optional: Preprocess the tensor (e.g., resize, normalize) for your model
+    // const resizedTensor = tf.image.resizeBilinear(tensor, [targetHeight, targetWidth]);
+    
+    return tensor;
+}
+
+
+  async convertUrlToEmbedding(){
+
+      // The outputed logits from mobilenet
+      let logits;
+      
+      for (const key in this.capturedDataset) {
+
+        for(const imageURL of this.capturedDataset[key]) {
+
+          // Convert base64 image to tensor
+          const image = await this.imageBase64ToTensor(imageURL);
+
+          // 'conv_preds' is the logits activation of MobileNet.
+          logits = this.mobilenet.infer(image, 'conv_preds');
+
+          // Convert logits to 2D embedding
+          const emb = logits.as2D(1, -1);
+
+          // Get the embedding size
+          const size = emb.shape[1];
+
+          // Ensure the model is built
+          this.ensureModel(size);
+          
+          // Store the embedding and the label
+          this.trainXs.push(emb.clone());
+          this.trainYs.push(tf.oneHot(tf.tensor1d([key]).toInt(), NUM_CLASSES));
+
+          // Dispose tensors to free memory
+          image.dispose();
+          logits.dispose();
+          emb.dispose();
+
+        }
+      }
+
+
+  }
+
   async trainModel() {
+
+    this.trainStatus.innerText = ' Preparing data...';
+    await this.convertUrlToEmbedding();
+
     if (this.trainXs.length === 0) {
       this.trainStatus.innerText = ' No examples to train on';
       return;
     }
-    this.trainStatus.innerText = ' Preparing data...';
+
     await tf.nextFrame();
 
     // Stack examples
@@ -234,8 +373,10 @@ class Main {
     this.trainYs = [];
 
     this.trainStatus.innerText = ' Training...';
+
     const batchSize = Math.min(32, xs.shape[0]);
     const epochs = 20;
+
     await this.model.fit(xs, ys, {
       batchSize,
       epochs,
