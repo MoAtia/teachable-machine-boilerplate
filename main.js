@@ -34,7 +34,7 @@ class Main {
     this.trainYs = [];
     this.model = null;
     this.modelTrained = false;
-    this.embeddingSize = null;
+    this.embeddingSize = 1000;
     this.capturedDataset = {};
     this.trainDataset = {};
     this.model = null;
@@ -136,12 +136,8 @@ class Main {
   // }
 
 
-  ensureModel(embeddingSize) {
+  ensureModel() {
 
-    if (this.model && this.embeddingSize === embeddingSize) {
-      return;
-    }
-    this.embeddingSize = embeddingSize;
     this.model = tf.sequential();
     this.model.add(tf.layers.dense({
       inputShape: [this.embeddingSize],
@@ -315,6 +311,7 @@ class Main {
 
       // The outputed logits from mobilenet
       let logits;
+      this.ensureModel();
       
       for (const key in this.capturedDataset) {
 
@@ -330,11 +327,11 @@ class Main {
           const emb = logits.as2D(1, -1);
 
           // Get the embedding size
-          const size = emb.shape[1];
+          // const size = emb.shape[1];
 
           // Ensure the model is built
-          this.ensureModel(size);
-          
+          // this.ensureModel(size);
+          // console.log("Embedding size:", size);
           // Store the embedding and the label
           this.trainXs.push(emb.clone());
           this.trainYs.push(tf.oneHot(tf.tensor1d([key]).toInt(), NUM_CLASSES));
