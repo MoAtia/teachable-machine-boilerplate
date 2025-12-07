@@ -98,15 +98,38 @@ class Main {
     document.body.appendChild(saveModeldiv);
 
 
+    const loadModeldiv = document.createElement('div');
+    loadModeldiv.style.marginTop = '16px';
+    const loadModelBtn = document.createElement('button');
+    loadModelBtn.innerText = 'load Model';
+    loadModeldiv.appendChild(loadModelBtn);
+    document.body.appendChild(loadModeldiv);
 
+    console.log(tf.loadLayersModel);
+    // Option C: Load from uploaded files
+    async function loadFromFiles() {
+      
+      tf.loadModel('./model/model.json')
+        .then(model => {
+          // The model is now loaded and ready to use!
+          console.log('Model loaded successfully!');
+          this.model = model;
+          // Example: Use the model to predict
+          // const prediction = model.predict(...);
+        })
+        .catch(error => {
+          console.error('Error loading model:', error);
+        });    
+    }
 
     trainBtn.addEventListener('click', async () => {
       await this.trainModel();
     });
 
     saveModelBtn.addEventListener('click', async () => {
-      await await this.model.save('file://./tfjs_output');
+      await this.model.save('downloads://my-model');
     });
+
 
     // Setup webcam
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
@@ -122,18 +145,8 @@ class Main {
 
   async bindPage() {
     this.mobilenet = await mobilenetModule.load();
-
-    // Build the classifier model (two dense layers)
-    // this.buildModel();
-
     this.start();
   }
-
-  // buildModel() {
-  //   // We will determine input size after first embedding; for now create a placeholder model
-  //   // and rebuild when we know embedding size.
-  //   this.model = null;
-  // }
 
 
   ensureModel() {
@@ -163,6 +176,7 @@ class Main {
       this.stop();
     }
     this.video.play();
+    
     this.timer = requestAnimationFrame(this.animate.bind(this));
   }
 
@@ -182,7 +196,7 @@ class Main {
 
 
   async test(image){
-    // console.log("Video frame tensor shape:", image);
+
     let logits;
 
     // 'conv_preds' is the logits activation of MobileNet.
@@ -193,8 +207,6 @@ class Main {
     const preds = this.model.predict(emb);
     const probs = await preds.data();
     const classIndex = probs.indexOf(Math.max(...probs));
-    // preds.dispose();
-    // emb.dispose();
 
     return {probs, classIndex};
 
@@ -308,7 +320,6 @@ class Main {
 
 
   async convertUrlToEmbedding(){
-
       // The outputed logits from mobilenet
       let logits;
       this.ensureModel();
@@ -326,12 +337,6 @@ class Main {
           // Convert logits to 2D embedding
           const emb = logits.as2D(1, -1);
 
-          // Get the embedding size
-          // const size = emb.shape[1];
-
-          // Ensure the model is built
-          // this.ensureModel(size);
-          // console.log("Embedding size:", size);
           // Store the embedding and the label
           this.trainXs.push(emb.clone());
           this.trainYs.push(tf.oneHot(tf.tensor1d([key]).toInt(), NUM_CLASSES));
