@@ -449,8 +449,17 @@ class Main {
     ys.dispose();
 
     this.modelTrained = true;
+    this.modelIsImported = false;
     this.trainStatus.innerText = ' Trained';
   }
+
+  async buildConfustionMatrix() {
+    // To be implemented
+    const rawPredictions = [];
+    
+  }
 }
+
+
 
 window.addEventListener('load', () => new Main());
