@@ -17,7 +17,7 @@ import * as mobilenetModule from '@tensorflow-models/mobilenet';
 import * as tf from '@tensorflow/tfjs';
 
 // Number of classes to classify
-const NUM_CLASSES = 4;
+const NUM_CLASSES = 2;
 // Webcam Image size. Must be 227. 
 const IMAGE_SIZE = 227;
 
@@ -89,7 +89,7 @@ class Main {
     trainDiv.appendChild(this.trainStatus);
     document.body.appendChild(trainDiv);
 
-
+    // Export model button
     const saveModeldiv = document.createElement('div');
     saveModeldiv.style.marginTop = '16px';
     const saveModelBtn = document.createElement('button');
@@ -97,13 +97,45 @@ class Main {
     saveModeldiv.appendChild(saveModelBtn);
     document.body.appendChild(saveModeldiv);
 
+    
+    // const loadModeldiv = document.createElement('div');
+    // loadModeldiv.style.marginTop = '16px';
+    // const loadModelBtn = document.createElement('button');
+    // loadModelBtn.innerText = 'load Model';
+    // loadModeldiv.appendChild(loadModelBtn);
+    // document.body.appendChild(loadModeldiv);
+
+    // import model buttons
+    // 2. Create the Model File Input
 
     const loadModeldiv = document.createElement('div');
     loadModeldiv.style.marginTop = '16px';
-    const loadModelBtn = document.createElement('button');
-    loadModelBtn.innerText = 'load Model';
-    loadModeldiv.appendChild(loadModelBtn);
+
+    const modelInput = document.createElement('input');
+    modelInput.type = 'file';
+    modelInput.id = 'model-file-input';
+    modelInput.accept = '.json';
+
+    // 3. Create the Weights File Input
+    const weightsInput = document.createElement('input');
+    weightsInput.type = 'file';
+    weightsInput.id = 'weights-file-input';
+    weightsInput.multiple = true; // Use the boolean property, not setAttribute('multiple', 'true')
+
+    // 4. Create the Load Button
+    const loadButton = document.createElement('button');
+    loadButton.id = 'load-button';
+    loadButton.textContent = 'Load Model';
+
+    // 5. Append the elements to the container (or directly to the body)
+    loadModeldiv.appendChild(modelInput);
+    loadModeldiv.appendChild(weightsInput);
+    loadModeldiv.appendChild(loadButton);
+
     document.body.appendChild(loadModeldiv);
+
+
+
 
     console.log(tf.loadLayersModel);
     // Option C: Load from uploaded files
@@ -130,6 +162,69 @@ class Main {
       await this.model.save('downloads://my-model');
     });
 
+  //   loadModelBtn.addEventListener("click", async (e) => {
+  //     const modelHandler = tf.io.browserFiles(files);
+
+  //       // 3. Load the Model
+  //       // Pass the I/O handler to tf.loadModel
+  //       const model = await tf.loadModel(modelHandler);
+  //     tf.loadModel('./my-model.json')
+  //     .then(model => {
+  //     // The model is now loaded and ready to use!
+  //     console.log('Model loaded successfully!');
+  //     // Example: Use the model to predict
+  //     // const prediction = model.predict(...);
+  //   })
+  //   .catch(error => {
+  //   console.error('Error loading model:', error);
+  // });
+  //   });
+
+  document.getElementById('load-button').addEventListener('click', async () => {
+    const modelFileInput = document.getElementById('model-file-input');
+    const weightsFileInput = document.getElementById('weights-file-input');
+
+    // 1. Get the model.json File object
+    const modelJsonFile = modelFileInput.files[0];
+
+    // 2. Get the Weight File objects (an array)
+    const weightFiles = Array.from(weightsFileInput.files);
+
+    if (!modelJsonFile || weightFiles.length === 0) {
+        console.error('Please select both the model.json and weight files.');
+        return;
+    }
+
+    try {
+        // 3. Create the input map required by tf.loadModel()
+        // The structure needs to be: { [model.json file name]: model.json File object, ...weight files... }
+        const filesMap = new Map();
+        
+        // Add the model.json file
+        filesMap.set(modelJsonFile.name, modelJsonFile);
+        
+        // Add the weight files
+        weightFiles.forEach(file => {
+            filesMap.set(file.name, file);
+        });
+
+        // 4. Load the model using tf.loadModel()
+        // Note: tf.loadModel() will accept the Map or an array of Files/Blobs.
+        // Using the array of File objects is often simpler for local loading.
+        const allFiles = [modelJsonFile, ...weightFiles];
+        
+        // This is the key part: pass the File objects directly to the function
+        this.model = await tf.loadModel(tf.io.browserFiles(allFiles));
+
+        console.log('✅ Model loaded successfully from local files!');
+        console.log('Model Summary:', this.model.summary());
+        this.modelTrained = true
+        
+        // You can now use the 'model' object for inference (e.g., model.predict(...))
+    } catch (error) {
+        console.error('❌ Error loading model:', error);
+    }
+});
 
     // Setup webcam
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
