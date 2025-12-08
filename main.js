@@ -38,6 +38,7 @@ class Main {
     this.capturedDataset = {};
     this.trainDataset = {};
     this.model = null;
+    this.modelIsImported = false;
 
     this.canvas = document.getElementById("canvas");
     this.ctx = canvas.getContext("2d");
@@ -98,13 +99,6 @@ class Main {
     document.body.appendChild(saveModeldiv);
 
     
-    // const loadModeldiv = document.createElement('div');
-    // loadModeldiv.style.marginTop = '16px';
-    // const loadModelBtn = document.createElement('button');
-    // loadModelBtn.innerText = 'load Model';
-    // loadModeldiv.appendChild(loadModelBtn);
-    // document.body.appendChild(loadModeldiv);
-
     // import model buttons
     // 2. Create the Model File Input
 
@@ -136,24 +130,7 @@ class Main {
 
 
 
-
-    console.log(tf.loadLayersModel);
-    // Option C: Load from uploaded files
-    async function loadFromFiles() {
-      
-      tf.loadModel('./model/model.json')
-        .then(model => {
-          // The model is now loaded and ready to use!
-          console.log('Model loaded successfully!');
-          this.model = model;
-          // Example: Use the model to predict
-          // const prediction = model.predict(...);
-        })
-        .catch(error => {
-          console.error('Error loading model:', error);
-        });    
-    }
-
+    
     trainBtn.addEventListener('click', async () => {
       await this.trainModel();
     });
@@ -162,23 +139,7 @@ class Main {
       await this.model.save('downloads://my-model');
     });
 
-  //   loadModelBtn.addEventListener("click", async (e) => {
-  //     const modelHandler = tf.io.browserFiles(files);
 
-  //       // 3. Load the Model
-  //       // Pass the I/O handler to tf.loadModel
-  //       const model = await tf.loadModel(modelHandler);
-  //     tf.loadModel('./my-model.json')
-  //     .then(model => {
-  //     // The model is now loaded and ready to use!
-  //     console.log('Model loaded successfully!');
-  //     // Example: Use the model to predict
-  //     // const prediction = model.predict(...);
-  //   })
-  //   .catch(error => {
-  //   console.error('Error loading model:', error);
-  // });
-  //   });
 
   document.getElementById('load-button').addEventListener('click', async () => {
     const modelFileInput = document.getElementById('model-file-input');
@@ -219,6 +180,9 @@ class Main {
         console.log('✅ Model loaded successfully from local files!');
         console.log('Model Summary:', this.model.summary());
         this.modelTrained = true
+        this.modelIsImported = true;
+        trainBtn.innerText = 'Train new Model';
+
         
         // You can now use the 'model' object for inference (e.g., model.predict(...))
     } catch (error) {
@@ -339,14 +303,7 @@ class Main {
 
       if (this.modelTrained) {
 
-        // If the model is trained run predict
-        // logits = infer();
-        // const emb = logits.as2D(1, -1);
-        // const preds = this.model.predict(emb);
-        // const probs = await preds.data();
-        // const classIndex = probs.indexOf(Math.max(...probs));
-        // preds.dispose();
-        // emb.dispose();
+        // If the model is trained run test
         const {probs, classIndex} = await this.test(image);
 
         for (let i = 0; i < NUM_CLASSES; i++) {
@@ -383,8 +340,6 @@ class Main {
 
     this.timer = requestAnimationFrame(this.animate.bind(this));
   }
-
-
 
 
   async imageBase64ToTensor(base64DataUrl) {
@@ -448,6 +403,10 @@ class Main {
   }
 
   async trainModel() {
+
+    if (this.modelIsImported) {
+      this.ensureModel();
+    }
 
     this.trainStatus.innerText = ' Preparing data...';
     await this.convertUrlToEmbedding();
