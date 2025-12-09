@@ -100,8 +100,8 @@ class Main {
 
     
     // import model buttons
-    // 2. Create the Model File Input
 
+    // 1. Create the Model File Input
     const loadModeldiv = document.createElement('div');
     loadModeldiv.style.marginTop = '16px';
 
@@ -110,25 +110,58 @@ class Main {
     modelInput.id = 'model-file-input';
     modelInput.accept = '.json';
 
-    // 3. Create the Weights File Input
+    // 2. Create the Weights File Input
     const weightsInput = document.createElement('input');
     weightsInput.type = 'file';
     weightsInput.id = 'weights-file-input';
     weightsInput.multiple = true; // Use the boolean property, not setAttribute('multiple', 'true')
 
-    // 4. Create the Load Button
+    // 3. Create the Load Button
     const loadButton = document.createElement('button');
     loadButton.id = 'load-button';
     loadButton.textContent = 'Load Model';
 
-    // 5. Append the elements to the container (or directly to the body)
+    // 4. Append the elements to the container (or directly to the body)
     loadModeldiv.appendChild(modelInput);
     loadModeldiv.appendChild(weightsInput);
     loadModeldiv.appendChild(loadButton);
 
     document.body.appendChild(loadModeldiv);
 
+    // Create the getConfusionMatrix Button
+    const getConfusionMatrixdiv = document.createElement('div');
+    getConfusionMatrixdiv.style.marginTop = '16px';
 
+    const getConfusionMatrixButton = document.createElement('button');
+    getConfusionMatrixButton.id = 'load-button';
+    getConfusionMatrixButton.textContent = 'Get Confusion Matrix';
+
+    getConfusionMatrixdiv.appendChild(getConfusionMatrixButton);
+    document.body.appendChild(getConfusionMatrixdiv);
+
+
+
+
+    // Create the StopTraining Button
+    const StopTrainingdiv = document.createElement('div');
+    StopTrainingdiv.style.marginTop = '16px';
+
+    const StopTrainingButton = document.createElement('button');
+    StopTrainingButton.id = 'load-button';
+    StopTrainingButton.textContent = 'Stop Training';
+
+    StopTrainingdiv.appendChild(StopTrainingButton);
+    document.body.appendChild(StopTrainingdiv);
+
+
+    this.stopTrainingFlag = false;
+    StopTrainingButton.addEventListener('click', async () => {
+      this.stopTrainingFlag = true;
+    });
+
+    getConfusionMatrixButton.addEventListener('click', async () => {
+      await this.buildConfustionMatrix();
+    });
 
     
     trainBtn.addEventListener('click', async () => {
@@ -378,9 +411,9 @@ class Main {
 
         for(const imageURL of this.capturedDataset[key]) {
 
-          // Convert base64 image to tensor
+          // Convert base64 image to tensor          
           const image = await this.imageBase64ToTensor(imageURL);
-
+          
           // 'conv_preds' is the logits activation of MobileNet.
           logits = this.mobilenet.infer(image, 'conv_preds');
 
@@ -423,15 +456,17 @@ class Main {
     const ys = tf.concat(this.trainYs, 0);
 
     // Free per-example tensors
-    this.trainXs.forEach(t => t.dispose());
-    this.trainYs.forEach(t => t.dispose());
-    this.trainXs = [];
-    this.trainYs = [];
+    // this.trainXs.forEach(t => t.dispose());
+    // this.trainYs.forEach(t => t.dispose());
+    // this.trainXs = [];
+    // this.trainYs = [];
 
     this.trainStatus.innerText = ' Training...';
 
     const batchSize = Math.min(32, xs.shape[0]);
-    const epochs = 20;
+    const epochs = 10;
+    const losses = [];
+    const accuracies = [];
 
     await this.model.fit(xs, ys, {
       batchSize,
@@ -440,23 +475,59 @@ class Main {
       callbacks: {
         onEpochEnd: async (epoch, logs) => {
           this.trainStatus.innerText = ` Training epoch ${epoch + 1}/${epochs} - loss: ${logs.loss.toFixed(3)} acc: ${logs.acc !== undefined ? logs.acc.toFixed(3) : (logs.accuracy || 0).toFixed(3)}`;
+          losses.push(logs.loss);
+          accuracies.push(logs.acc !== undefined ? logs.acc : logs.accuracy || 0);
+          await tf.nextFrame();
+        },
+        onBatchEnd: async (batch, logs) => {
+          if (this.stopTrainingFlag) {
+            this.model.stopTraining = true
+          }
           await tf.nextFrame();
         }
       }
     });
-
+    console.log('Losses:', losses);
+    console.log('Accuracies:', accuracies);
     xs.dispose();
     ys.dispose();
 
-    this.modelTrained = true;
+    this.modelTrained = !this.stopTrainingFlag ? true : false;
     this.modelIsImported = false;
-    this.trainStatus.innerText = ' Trained';
+    this.trainStatus.innerText = !this.stopTrainingFlag ? 'Trained' : 'Training Stopped';
   }
 
   async buildConfustionMatrix() {
-    // To be implemented
-    const rawPredictions = [];
-    
+
+    // Stack examples
+    console.log(this.trainXs)
+    const xs = tf.concat(this.trainXs, 0);
+    const ys = tf.concat(this.trainYs, 0);
+
+    // Free per-example tensors
+    // this.trainXs.forEach(t => t.dispose());
+    // this.trainYs.forEach(t => t.dispose());
+    // this.trainXs = [];
+    // this.trainYs = [];
+
+    const rawPredictions = this.model.predict(xs);
+
+    rawPredictions.print();
+    const predictedClassIndices = tf.argMax(rawPredictions, 1);
+    console.log(predictedClassIndices)
+    const trueClassIndices = tf.argMax(ys, 1);
+    console.log(trueClassIndices)
+    // trueClassIndices.max().print();
+    const maxTrueClassIndex = tf.max(trueClassIndices).dataSync()[0];
+    console.log("Max true class index:", maxTrueClassIndex);
+    const confusionMatrix = tf.math.confusionMatrix(
+      trueClassIndices,
+      predictedClassIndices,
+      NUM_CLASSES
+    );
+
+    // Print the resulting Confusion Matrix Tensor
+    confusionMatrix.print();
   }
 }
 
