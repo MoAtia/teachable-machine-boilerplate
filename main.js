@@ -1,17 +1,3 @@
-// Copyright 2018 Google LLC
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 import "@babel/polyfill";
 import * as mobilenetModule from '@tensorflow-models/mobilenet';
 import * as tf from '@tensorflow/tfjs';
@@ -39,6 +25,7 @@ class Main {
     this.trainDataset = {};
     this.model = null;
     this.modelIsImported = false;
+    this.trainingStatus = 0; // 0: not trained, 1: training, 2: training stopped, 3: trained , 4: imported
 
     this.canvas = document.getElementById("canvas");
     this.ctx = canvas.getContext("2d");
@@ -436,6 +423,26 @@ class Main {
 
   }
 
+  async stopTraining() {
+    if (this.trainingStatus === 1){
+      this.trainingStatus = 2; // set status to training stopped
+      return true;
+    }
+    return false;
+  }
+
+  TrainingDone()
+  {
+    console.log("TrainingDone");
+  }
+
+  // reportProgress(){
+  //   const losses = [];
+  //   const accuracies = [];
+
+
+  // }
+
 
   async trainModel() {
 
@@ -444,6 +451,7 @@ class Main {
     }
 
     this.trainStatus.innerText = ' Preparing data...';
+
     await this.convertUrlToEmbedding();
 
     if (this.trainXs.length === 0) {
@@ -462,14 +470,19 @@ class Main {
 
     const batchSize = Math.min(32, xs.shape[0]);
     const epochs = 10;
-    const losses = [];
-    const accuracies = [];
+    // const losses = [];
+    // const accuracies = [];
 
     await this.model.fit(xs, ys, {
       batchSize,
       epochs,
       shuffle: true,
       callbacks: {
+        onTrainBegin: async () => {
+          this.trainingStatus = 1; // set status to training
+          console.log("Training started");
+        },
+
         onEpochEnd: async (epoch, logs) => {
           this.trainStatus.innerText = ` Training epoch ${epoch + 1}/${epochs} - loss: ${logs.loss.toFixed(3)} acc: ${logs.acc !== undefined ? logs.acc.toFixed(3) : (logs.accuracy || 0).toFixed(3)}`;
           losses.push(logs.loss);
@@ -477,10 +490,15 @@ class Main {
           await tf.nextFrame();
         },
         onBatchEnd: async (batch, logs) => {
-          if (this.stopTrainingFlag) {
+          if (this.trainingStatus === 2) {
             this.model.stopTraining = true
           }
           await tf.nextFrame();
+        },
+
+        onTrainEnd: async () => {
+          this.trainingStatus = 3; // set status to trained
+          this.TrainingDone();
         }
       }
     });
@@ -493,6 +511,7 @@ class Main {
     this.modelIsImported = false;
     this.trainStatus.innerText = !this.stopTrainingFlag ? 'Trained' : 'Training Stopped';
   }
+
 
   
   async buildConfustionMatrix() {
