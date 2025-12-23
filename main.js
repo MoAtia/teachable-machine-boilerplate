@@ -17,7 +17,7 @@ import * as mobilenetModule from '@tensorflow-models/mobilenet';
 import * as tf from '@tensorflow/tfjs';
 
 // Number of classes to classify
-const NUM_CLASSES = 2;
+const NUM_CLASSES = 3;
 // Webcam Image size. Must be 227. 
 const IMAGE_SIZE = 227;
 
@@ -25,6 +25,7 @@ const IMAGE_SIZE = 227;
 class Main {
 
   constructor() {
+
     // Initiate variables
     this.infoTexts = [];
     this.training = -1; // -1 when no class is being captured
@@ -32,7 +33,6 @@ class Main {
     this.exampleCounts = new Array(NUM_CLASSES).fill(0);
     this.trainXs = [];
     this.trainYs = [];
-    this.model = null;
     this.modelTrained = false;
     this.embeddingSize = 1000;
     this.capturedDataset = {};
@@ -61,6 +61,7 @@ class Main {
       const div = document.createElement('div');
       document.body.appendChild(div);
       div.style.marginBottom = '10px';
+      div.style.marginTop = '16px';
 
       // Create training button
       const button = document.createElement('button')
@@ -78,7 +79,7 @@ class Main {
       this.infoTexts.push(infoText);
     }
 
-    // Global training button
+    // Training button
     const trainDiv = document.createElement('div');
     trainDiv.style.marginTop = '16px';
     const trainBtn = document.createElement('button');
@@ -140,9 +141,7 @@ class Main {
     document.body.appendChild(getConfusionMatrixdiv);
 
 
-
-
-    // Create the StopTraining Button
+    // Create the Stop Training Button
     const StopTrainingdiv = document.createElement('div');
     StopTrainingdiv.style.marginTop = '16px';
 
@@ -152,6 +151,8 @@ class Main {
 
     StopTrainingdiv.appendChild(StopTrainingButton);
     document.body.appendChild(StopTrainingdiv);
+
+
 
 
     this.stopTrainingFlag = false;
@@ -174,20 +175,20 @@ class Main {
 
 
 
-  document.getElementById('load-button').addEventListener('click', async () => {
-    const modelFileInput = document.getElementById('model-file-input');
-    const weightsFileInput = document.getElementById('weights-file-input');
+    document.getElementById('load-button').addEventListener('click', async () => {
+      const modelFileInput = document.getElementById('model-file-input');
+      const weightsFileInput = document.getElementById('weights-file-input');
 
-    // 1. Get the model.json File object
-    const modelJsonFile = modelFileInput.files[0];
+      // 1. Get the model.json File object
+      const modelJsonFile = modelFileInput.files[0];
 
-    // 2. Get the Weight File objects (an array)
-    const weightFiles = Array.from(weightsFileInput.files);
+      // 2. Get the Weight File objects (an array)
+      const weightFiles = Array.from(weightsFileInput.files);
 
-    if (!modelJsonFile || weightFiles.length === 0) {
-        console.error('Please select both the model.json and weight files.');
-        return;
-    }
+      if (!modelJsonFile || weightFiles.length === 0) {
+          console.error('Please select both the model.json and weight files.');
+          return;
+      }
 
     try {
         // 3. Create the input map required by tf.loadModel()
@@ -221,7 +222,7 @@ class Main {
     } catch (error) {
         console.error('❌ Error loading model:', error);
     }
-});
+  });
 
     // Setup webcam
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
@@ -399,7 +400,7 @@ class Main {
     // const resizedTensor = tf.image.resizeBilinear(tensor, [targetHeight, targetWidth]);
     
     return tensor;
-}
+  }
 
 
   async convertUrlToEmbedding(){
@@ -435,6 +436,7 @@ class Main {
 
   }
 
+
   async trainModel() {
 
     if (this.modelIsImported) {
@@ -455,11 +457,6 @@ class Main {
     const xs = tf.concat(this.trainXs, 0);
     const ys = tf.concat(this.trainYs, 0);
 
-    // Free per-example tensors
-    // this.trainXs.forEach(t => t.dispose());
-    // this.trainYs.forEach(t => t.dispose());
-    // this.trainXs = [];
-    // this.trainYs = [];
 
     this.trainStatus.innerText = ' Training...';
 
@@ -497,6 +494,7 @@ class Main {
     this.trainStatus.innerText = !this.stopTrainingFlag ? 'Trained' : 'Training Stopped';
   }
 
+  
   async buildConfustionMatrix() {
 
     // Stack examples
