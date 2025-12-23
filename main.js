@@ -153,7 +153,7 @@ class Main {
 
     
     trainBtn.addEventListener('click', async () => {
-      await this.trainModel();
+      await this.trainModel(this.capturedDataset,20, 32, .0001);
     });
 
     saveModelBtn.addEventListener('click', async () => {
@@ -364,6 +364,7 @@ class Main {
 
 
   async imageBase64ToTensor(base64DataUrl) {
+
     // 1. Create a new Image object
     const img = new Image();
     img.crossOrigin = "Anonymous"; // Handle potential CORS issues
@@ -382,22 +383,20 @@ class Main {
 
     // 5. Convert the loaded image element into a tensor
     const tensor = tf.fromPixels(loadedImg);
-    
-    // Optional: Preprocess the tensor (e.g., resize, normalize) for your model
-    // const resizedTensor = tf.image.resizeBilinear(tensor, [targetHeight, targetWidth]);
-    
+        
     return tensor;
   }
 
 
-  async convertUrlToEmbedding(){
+  async convertUrlToEmbedding(trainData){
+
       // The outputed logits from mobilenet
       let logits;
       this.ensureModel();
       
-      for (const key in this.capturedDataset) {
+      for (const key in trainData) {
 
-        for(const imageURL of this.capturedDataset[key]) {
+        for(const imageURL of trainData[key]) {
 
           // Convert base64 image to tensor          
           const image = await this.imageBase64ToTensor(imageURL);
@@ -436,15 +435,14 @@ class Main {
     console.log("TrainingDone");
   }
 
-  // reportProgress(){
-  //   const losses = [];
-  //   const accuracies = [];
+
+  ReportProgress(epoch, loss, accuracy)
+  {
+      console.log("ReportProgress: " + epoch + ", " + loss + ", " + accuracy);
+  }
 
 
-  // }
-
-
-  async trainModel() {
+  async trainModel(trainData,epochs, batchSize_, lr) {
 
     if (this.modelIsImported) {
       this.ensureModel();
@@ -452,7 +450,7 @@ class Main {
 
     this.trainStatus.innerText = ' Preparing data...';
 
-    await this.convertUrlToEmbedding();
+    await this.convertUrlToEmbedding(trainData);
 
     if (this.trainXs.length === 0) {
       this.trainStatus.innerText = ' No examples to train on';
@@ -468,15 +466,32 @@ class Main {
 
     this.trainStatus.innerText = ' Training...';
 
-    const batchSize = Math.min(32, xs.shape[0]);
-    const epochs = 10;
+    const batchSize = Math.min(batchSize_, xs.shape[0]);
+    // const epochs = 10;
     // const losses = [];
     // const accuracies = [];
+
+    // 1. Define the learning rate
+    const LEARNING_RATE = lr; // Common small positive value
+
+    // 2. Create an optimizer with the specified learning rate
+    // For example, using the Adam optimizer, which is a popular choice
+    const optimizer = tf.train.adam(LEARNING_RATE); 
+
+    // 3. Compile the model, specifying the optimizer, loss function, and metrics
+    this.model.compile({
+      optimizer: optimizer,
+      loss: 'categoricalCrossentropy', // Example loss function
+      metrics: ['accuracy'], // Example metric
+    });
+
+
 
     await this.model.fit(xs, ys, {
       batchSize,
       epochs,
       shuffle: true,
+      // learningRate: lr,
       callbacks: {
         onTrainBegin: async () => {
           this.trainingStatus = 1; // set status to training
@@ -485,8 +500,7 @@ class Main {
 
         onEpochEnd: async (epoch, logs) => {
           this.trainStatus.innerText = ` Training epoch ${epoch + 1}/${epochs} - loss: ${logs.loss.toFixed(3)} acc: ${logs.acc !== undefined ? logs.acc.toFixed(3) : (logs.accuracy || 0).toFixed(3)}`;
-          losses.push(logs.loss);
-          accuracies.push(logs.acc !== undefined ? logs.acc : logs.accuracy || 0);
+          this.ReportProgress(epoch, logs.loss, logs.acc !== undefined ? logs.acc : logs.accuracy || 0);
           await tf.nextFrame();
         },
         onBatchEnd: async (batch, logs) => {
@@ -502,8 +516,8 @@ class Main {
         }
       }
     });
-    console.log('Losses:', losses);
-    console.log('Accuracies:', accuracies);
+    // console.log('Losses:', losses);
+    // console.log('Accuracies:', accuracies);
     xs.dispose();
     ys.dispose();
 
