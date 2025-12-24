@@ -5,10 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Teachable Machine Boilerplate</title>
-
     <script src="dist/build.js"></script>
 </head>
 <body>
     <canvas id="canvas" style="transform: scaleX(-1); display: none;"></canvas>
+    <video autoplay playsinline width="640" height="480" style="transform: scaleX(-1);"></video>
+
+    <div>
+        <button id="class-0-button">Class 0</button>
+        <span id="class-0-info" style="margin-left: 8px;">0</span>
+    </div>
+
+    <div style="margin-top: 16px;">
+        <button id="class-1-button">Class 1</button>
+        <span id="class-1-info" style="margin-left: 8px;">0</span>
+    </div>
+    
+    <div style="margin-top: 16px;">
+        <button id="class-2-button">Class 2</button>
+        <span id="class-2-info" style="margin-left: 8px;">0</span>
+    </div>
+
+    <!-- Train Model Button -->
+    <div style="margin-top: 16px;">
+        <button onclick="window.app.trainModel(window.app.capturedDataset,20, 32, .0001)">Train Model</button>
+        <span style="margin-left: 8px;">Idle</span>
+    </div>
+
+    <div style="margin-top: 16px;">
+        <button onclick="window.app.model.save('downloads://my-model')">Save Model</button>
+    </div>
+
+    <div style="margin-top: 16px;">
+        <input type="file" id="model-file-input" accept=".json" />
+        <input type="file" id="weights-file-input" multiple />
+        <button id="load-button">Load Model</button>
+    </div>
+
+    <div style="margin-top: 16px;">
+        <button id="confusion-matrix">confusion matrix</button>
+    </div>
+
+    <div style="margin-top: 16px;">
+        <button id="stop-training" onclick="window.app.stopTraining()">Stop Training</button>
+    </div>
+
+
 </body>
 </html>

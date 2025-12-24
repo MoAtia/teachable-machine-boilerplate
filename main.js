@@ -35,13 +35,13 @@ class Main {
     this.bindPage();
 
     // Create video element that will contain the webcam image
-    this.video = document.createElement('video');
-    this.video.setAttribute('autoplay', '');
-    this.video.setAttribute('playsinline', '');
-    this.video.style.transform = 'scaleX(-1)'; // Flip the video horizontally
-
+    this.video = document.getElementsByTagName('video')[0]; //document.createElement('video');
+    // this.video.setAttribute('autoplay', '');
+    // this.video.setAttribute('playsinline', '');
+    // this.video.style.transform = 'scaleX(-1)'; // Flip the video horizontally
+    // console.log(this.video);
     // Add video element to DOM
-    document.body.appendChild(this.video);
+    // document.body.appendChild(this.video);
 
     // Create training buttons and info texts    
     for (let i = 0; i < NUM_CLASSES; i++) {
@@ -564,4 +564,8 @@ class Main {
 
 
 
-window.addEventListener('load', () => new Main());
+// window.addEventListener('load', () => new Main());
+
+window.addEventListener('load', () => {
+  window.app = new Main();
+});
