@@ -86,36 +86,28 @@ var Main = function (_BaseModel) {
     _this.video = document.getElementsByTagName('video')[0];
 
     // Create training buttons and info texts    
+    // for (let i = 0; i < NUM_CLASSES; i++) {
+    //   const div = document.createElement('div');
+    //   document.body.appendChild(div);
+    //   div.style.marginBottom = '10px';
+    //   div.style.marginTop = '16px';
 
-    var _loop = function _loop(i) {
-      var div = document.createElement('div');
-      document.body.appendChild(div);
-      div.style.marginBottom = '10px';
-      div.style.marginTop = '16px';
+    //   // Create training button
+    //   const button = document.createElement('button')
+    //   button.innerText = "Capture class " + i;
+    //   div.appendChild(button);
 
-      // Create training button
-      var button = document.createElement('button');
-      button.innerText = "Capture class " + i;
-      div.appendChild(button);
+    //   // Listen for mouse events when clicking the button
+    //   button.addEventListener('mousedown', () => this.training = i);
+    //   button.addEventListener('mouseup', () => this.training = -1);
 
-      // Listen for mouse events when clicking the button
-      button.addEventListener('mousedown', function () {
-        return _this.training = i;
-      });
-      button.addEventListener('mouseup', function () {
-        return _this.training = -1;
-      });
+    //   // Create info text
+    //   const infoText = document.createElement('span')
+    //   infoText.innerText = " No examples added";
+    //   div.appendChild(infoText);
+    //   // this.infoTexts.push(infoText);
+    // }
 
-      // Create info text
-      var infoText = document.createElement('span');
-      infoText.innerText = " No examples added";
-      div.appendChild(infoText);
-      _this.infoTexts.push(infoText);
-    };
-
-    for (var i = 0; i < NUM_CLASSES; i++) {
-      _loop(i);
-    }
 
     // Setup webcam
     navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(function (stream) {
