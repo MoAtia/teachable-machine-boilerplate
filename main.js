@@ -7,21 +7,42 @@ const NUM_CLASSES = 3;
 // Webcam Image size. Must be 227. 
 const IMAGE_SIZE = 227;
 
+class BaseModel{
+  constructor() {
+    this.capturedDataset = {};
+    this.trainXs = [];
+    this.trainYs = [];
 
-class Main {
+  }
+
+  // You could comment it, I just added it to give you an idea
+  addToDict(key, value) {
+
+    // key = class index : 0, 1, 2, ...
+    // value = base64 image data URL
+    if (!this.capturedDataset[key]) {
+      this.capturedDataset[key] = [];   // create list if not exists
+    }
+    this.capturedDataset[key].push(value);
+  }
+
+}
+
+
+class Main extends BaseModel {
 
   constructor() {
-
+    super();
     // Initiate variables
     this.infoTexts = [];
     this.training = -1; // -1 when no class is being captured
     this.videoPlaying = false;
     this.exampleCounts = new Array(NUM_CLASSES).fill(0);
-    this.trainXs = [];
-    this.trainYs = [];
+    // this.trainXs = [];
+    // this.trainYs = [];
     this.modelTrained = false;
     this.embeddingSize = 1000;
-    this.capturedDataset = {};
+    // this.capturedDataset = {};
     this.trainDataset = {};
     this.model = null;
     this.modelIsImported = false;
@@ -44,172 +65,172 @@ class Main {
     // document.body.appendChild(this.video);
 
     // Create training buttons and info texts    
-    for (let i = 0; i < NUM_CLASSES; i++) {
-      const div = document.createElement('div');
-      document.body.appendChild(div);
-      div.style.marginBottom = '10px';
-      div.style.marginTop = '16px';
+    // for (let i = 0; i < NUM_CLASSES; i++) {
+    //   const div = document.createElement('div');
+    //   document.body.appendChild(div);
+    //   div.style.marginBottom = '10px';
+    //   div.style.marginTop = '16px';
 
-      // Create training button
-      const button = document.createElement('button')
-      button.innerText = "Capture class " + i;
-      div.appendChild(button);
+    //   // Create training button
+    //   const button = document.createElement('button')
+    //   button.innerText = "Capture class " + i;
+    //   div.appendChild(button);
 
-      // Listen for mouse events when clicking the button
-      button.addEventListener('mousedown', () => this.training = i);
-      button.addEventListener('mouseup', () => this.training = -1);
+    //   // Listen for mouse events when clicking the button
+    //   button.addEventListener('mousedown', () => this.training = i);
+    //   button.addEventListener('mouseup', () => this.training = -1);
 
-      // Create info text
-      const infoText = document.createElement('span')
-      infoText.innerText = " No examples added";
-      div.appendChild(infoText);
-      this.infoTexts.push(infoText);
-    }
+    //   // Create info text
+    //   const infoText = document.createElement('span')
+    //   infoText.innerText = " No examples added";
+    //   div.appendChild(infoText);
+    //   this.infoTexts.push(infoText);
+    // }
 
-    // Training button
-    const trainDiv = document.createElement('div');
-    trainDiv.style.marginTop = '16px';
-    const trainBtn = document.createElement('button');
-    trainBtn.innerText = 'Train Model';
-    trainDiv.appendChild(trainBtn);
-    this.trainStatus = document.createElement('span');
-    this.trainStatus.style.marginLeft = '8px';
-    this.trainStatus.innerText = ' Idle';
-    trainDiv.appendChild(this.trainStatus);
-    document.body.appendChild(trainDiv);
+    // // Training button
+    // const trainDiv = document.createElement('div');
+    // trainDiv.style.marginTop = '16px';
+    // const trainBtn = document.createElement('button');
+    // trainBtn.innerText = 'Train Model';
+    // trainDiv.appendChild(trainBtn);
+    // this.trainStatus = document.createElement('span');
+    // this.trainStatus.style.marginLeft = '8px';
+    // this.trainStatus.innerText = ' Idle';
+    // trainDiv.appendChild(this.trainStatus);
+    // document.body.appendChild(trainDiv);
 
     // Export model button
-    const saveModeldiv = document.createElement('div');
-    saveModeldiv.style.marginTop = '16px';
-    const saveModelBtn = document.createElement('button');
-    saveModelBtn.innerText = 'Save Model';
-    saveModeldiv.appendChild(saveModelBtn);
-    document.body.appendChild(saveModeldiv);
+    // const saveModeldiv = document.createElement('div');
+    // saveModeldiv.style.marginTop = '16px';
+    // const saveModelBtn = document.createElement('button');
+    // saveModelBtn.innerText = 'Save Model';
+    // saveModeldiv.appendChild(saveModelBtn);
+    // document.body.appendChild(saveModeldiv);
 
     
     // import model buttons
 
     // 1. Create the Model File Input
-    const loadModeldiv = document.createElement('div');
-    loadModeldiv.style.marginTop = '16px';
+    // const loadModeldiv = document.createElement('div');
+    // loadModeldiv.style.marginTop = '16px';
 
-    const modelInput = document.createElement('input');
-    modelInput.type = 'file';
-    modelInput.id = 'model-file-input';
-    modelInput.accept = '.json';
+    // const modelInput = document.createElement('input');
+    // modelInput.type = 'file';
+    // modelInput.id = 'model-file-input';
+    // modelInput.accept = '.json';
 
     // 2. Create the Weights File Input
-    const weightsInput = document.createElement('input');
-    weightsInput.type = 'file';
-    weightsInput.id = 'weights-file-input';
-    weightsInput.multiple = true; // Use the boolean property, not setAttribute('multiple', 'true')
+    // const weightsInput = document.createElement('input');
+    // weightsInput.type = 'file';
+    // weightsInput.id = 'weights-file-input';
+    // weightsInput.multiple = true; // Use the boolean property, not setAttribute('multiple', 'true')
 
     // 3. Create the Load Button
-    const loadButton = document.createElement('button');
-    loadButton.id = 'load-button';
-    loadButton.textContent = 'Load Model';
+    // const loadButton = document.createElement('button');
+    // loadButton.id = 'load-button';
+    // loadButton.textContent = 'Load Model';
 
     // 4. Append the elements to the container (or directly to the body)
-    loadModeldiv.appendChild(modelInput);
-    loadModeldiv.appendChild(weightsInput);
-    loadModeldiv.appendChild(loadButton);
+    // loadModeldiv.appendChild(modelInput);
+    // loadModeldiv.appendChild(weightsInput);
+    // loadModeldiv.appendChild(loadButton);
 
-    document.body.appendChild(loadModeldiv);
+    // document.body.appendChild(loadModeldiv);
 
     // Create the getConfusionMatrix Button
-    const getConfusionMatrixdiv = document.createElement('div');
-    getConfusionMatrixdiv.style.marginTop = '16px';
+    // const getConfusionMatrixdiv = document.createElement('div');
+    // getConfusionMatrixdiv.style.marginTop = '16px';
 
-    const getConfusionMatrixButton = document.createElement('button');
-    getConfusionMatrixButton.id = 'load-button';
-    getConfusionMatrixButton.textContent = 'Get Confusion Matrix';
+    // const getConfusionMatrixButton = document.createElement('button');
+    // getConfusionMatrixButton.id = 'load-button';
+    // getConfusionMatrixButton.textContent = 'Get Confusion Matrix';
 
-    getConfusionMatrixdiv.appendChild(getConfusionMatrixButton);
-    document.body.appendChild(getConfusionMatrixdiv);
+    // getConfusionMatrixdiv.appendChild(getConfusionMatrixButton);
+    // document.body.appendChild(getConfusionMatrixdiv);
 
 
     // Create the Stop Training Button
-    const StopTrainingdiv = document.createElement('div');
-    StopTrainingdiv.style.marginTop = '16px';
+    // const StopTrainingdiv = document.createElement('div');
+    // StopTrainingdiv.style.marginTop = '16px';
 
-    const StopTrainingButton = document.createElement('button');
-    StopTrainingButton.id = 'load-button';
-    StopTrainingButton.textContent = 'Stop Training';
+    // const StopTrainingButton = document.createElement('button');
+    // StopTrainingButton.id = 'load-button';
+    // StopTrainingButton.textContent = 'Stop Training';
 
-    StopTrainingdiv.appendChild(StopTrainingButton);
-    document.body.appendChild(StopTrainingdiv);
-
-
+    // StopTrainingdiv.appendChild(StopTrainingButton);
+    // document.body.appendChild(StopTrainingdiv);
 
 
-    this.stopTrainingFlag = false;
-    StopTrainingButton.addEventListener('click', async () => {
-      this.stopTrainingFlag = true;
-    });
 
-    getConfusionMatrixButton.addEventListener('click', async () => {
-      await this.buildConfustionMatrix();
-    });
+
+    // this.stopTrainingFlag = false;
+    // StopTrainingButton.addEventListener('click', async () => {
+    //   this.stopTrainingFlag = true;
+    // });
+
+    // getConfusionMatrixButton.addEventListener('click', async () => {
+    //   await this.buildConfustionMatrix();
+    // });
 
     
-    trainBtn.addEventListener('click', async () => {
-      await this.trainModel(this.capturedDataset,20, 32, .0001);
-    });
+    // trainBtn.addEventListener('click', async () => {
+    //   await this.trainModel(this.capturedDataset,20, 32, .0001);
+    // });
 
-    saveModelBtn.addEventListener('click', async () => {
-      await this.model.save('downloads://my-model');
-    });
+    // saveModelBtn.addEventListener('click', async () => {
+    //   await this.model.save('downloads://my-model');
+    // });
 
 
 
-    document.getElementById('load-button').addEventListener('click', async () => {
-      const modelFileInput = document.getElementById('model-file-input');
-      const weightsFileInput = document.getElementById('weights-file-input');
+  //   document.getElementById('load-button').addEventListener('click', async () => {
+  //     const modelFileInput = document.getElementById('model-file-input');
+  //     const weightsFileInput = document.getElementById('weights-file-input');
 
-      // 1. Get the model.json File object
-      const modelJsonFile = modelFileInput.files[0];
+  //     // 1. Get the model.json File object
+  //     const modelJsonFile = modelFileInput.files[0];
 
-      // 2. Get the Weight File objects (an array)
-      const weightFiles = Array.from(weightsFileInput.files);
+  //     // 2. Get the Weight File objects (an array)
+  //     const weightFiles = Array.from(weightsFileInput.files);
 
-      if (!modelJsonFile || weightFiles.length === 0) {
-          console.error('Please select both the model.json and weight files.');
-          return;
-      }
+  //     if (!modelJsonFile || weightFiles.length === 0) {
+  //         console.error('Please select both the model.json and weight files.');
+  //         return;
+  //     }
 
-    try {
-        // 3. Create the input map required by tf.loadModel()
-        // The structure needs to be: { [model.json file name]: model.json File object, ...weight files... }
-        const filesMap = new Map();
+  //   try {
+  //       // 3. Create the input map required by tf.loadModel()
+  //       // The structure needs to be: { [model.json file name]: model.json File object, ...weight files... }
+  //       const filesMap = new Map();
         
-        // Add the model.json file
-        filesMap.set(modelJsonFile.name, modelJsonFile);
+  //       // Add the model.json file
+  //       filesMap.set(modelJsonFile.name, modelJsonFile);
         
-        // Add the weight files
-        weightFiles.forEach(file => {
-            filesMap.set(file.name, file);
-        });
+  //       // Add the weight files
+  //       weightFiles.forEach(file => {
+  //           filesMap.set(file.name, file);
+  //       });
 
-        // 4. Load the model using tf.loadModel()
-        // Note: tf.loadModel() will accept the Map or an array of Files/Blobs.
-        // Using the array of File objects is often simpler for local loading.
-        const allFiles = [modelJsonFile, ...weightFiles];
+  //       // 4. Load the model using tf.loadModel()
+  //       // Note: tf.loadModel() will accept the Map or an array of Files/Blobs.
+  //       // Using the array of File objects is often simpler for local loading.
+  //       const allFiles = [modelJsonFile, ...weightFiles];
         
-        // This is the key part: pass the File objects directly to the function
-        this.model = await tf.loadModel(tf.io.browserFiles(allFiles));
+  //       // This is the key part: pass the File objects directly to the function
+  //       this.model = await tf.loadModel(tf.io.browserFiles(allFiles));
 
-        console.log('✅ Model loaded successfully from local files!');
-        console.log('Model Summary:', this.model.summary());
-        this.modelTrained = true
-        this.modelIsImported = true;
-        trainBtn.innerText = 'Train new Model';
+  //       console.log('✅ Model loaded successfully from local files!');
+  //       console.log('Model Summary:', this.model.summary());
+  //       this.modelTrained = true
+  //       this.modelIsImported = true;
+  //       trainBtn.innerText = 'Train new Model';
 
         
-        // You can now use the 'model' object for inference (e.g., model.predict(...))
-    } catch (error) {
-        console.error('❌ Error loading model:', error);
-    }
-  });
+  //       // You can now use the 'model' object for inference (e.g., model.predict(...))
+  //   } catch (error) {
+  //       console.error('❌ Error loading model:', error);
+  //   }
+  // });
 
     // Setup webcam
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
@@ -267,16 +288,10 @@ class Main {
   }
 
 
-  addToDict(key, value) {
-    if (!this.capturedDataset[key]) {
-      this.capturedDataset[key] = [];   // create list if not exists
-    }
-    this.capturedDataset[key].push(value);
-  }
+  async test(source){
 
-
-  async test(image){
-
+    // Source could be image, video or canvas element
+    const image = tf.fromPixels(source);
     let logits;
 
     // 'conv_preds' is the logits activation of MobileNet.
@@ -297,15 +312,6 @@ class Main {
 
     if (this.videoPlaying) {
 
-
-      const image = tf.fromPixels(this.video);
-
-      // console.log("Video frame tensor shape:", image);
-      let logits;
-
-      // 'conv_preds' is the logits activation of MobileNet.
-      const infer = () => this.mobilenet.infer(image, 'conv_preds');
-
       // Capture examples if one of the buttons is held down
       if (this.training != -1) {
 
@@ -314,49 +320,50 @@ class Main {
 
         // Convert to image data or base64 image
         const dataURL = this.canvas.toDataURL("image/png");
-
+        
+        // Add the image to the dataset object
         this.addToDict(this.training, dataURL);
-        this.exampleCounts[this.training] += 1;
 
       }
 
-      const totalExamples = this.exampleCounts.reduce((a, b) => a + b, 0);
 
       if (this.modelTrained) {
 
         // If the model is trained run test
-        const {probs, classIndex} = await this.test(image);
+        const {probs, classIndex} = await this.test(this.video);
+        console.log(classIndex);
 
-        for (let i = 0; i < NUM_CLASSES; i++) {
-          // Make the predicted class bold
-          if (classIndex == i) {
-            this.infoTexts[i].style.fontWeight = 'bold';
-          } else {
-            this.infoTexts[i].style.fontWeight = 'normal';
-          }
+        // for (let i = 0; i < NUM_CLASSES; i++) {
+        //   // Make the predicted class bold
+        //   if (classIndex == i) {
+        //     this.infoTexts[i].style.fontWeight = 'bold';
+        //   } else {
+        //     this.infoTexts[i].style.fontWeight = 'normal';
+        //   }
 
-          // Update info text
-          if (this.exampleCounts[i] > 0) {
-            const pct = (probs[i] * 100).toFixed(1);
-            this.infoTexts[i].innerText = ` ${this.exampleCounts[i]} examples - ${pct}%`
-          } else {
-            this.infoTexts[i].innerText = ` 0 examples`;
-          }
-        }
+        //   // Update info text
+        //   if (this.exampleCounts[i] > 0) {
+        //     const pct = (probs[i] * 100).toFixed(1);
+        //     this.infoTexts[i].innerText = ` ${this.exampleCounts[i]} examples - ${pct}%`
+        //   } else {
+        //     this.infoTexts[i].innerText = ` 0 examples`;
+        //   }
+        // }
       }
-      else if (totalExamples > 0) {
-        // Update example counts while collecting (no prediction yet)
-        for (let i = 0; i < NUM_CLASSES; i++) {
-          this.infoTexts[i].style.fontWeight = 'normal';
-          this.infoTexts[i].innerText = ` ${this.exampleCounts[i]} examples`;
-        }
-      }
+      // else if (totalExamples > 0) {
+      //   // Update example counts while collecting (no prediction yet)
+      //   for (let i = 0; i < NUM_CLASSES; i++) {
+      //     this.infoTexts[i].style.fontWeight = 'normal';
+      //     this.infoTexts[i].innerText = ` ${this.exampleCounts[i]} examples`;
+      //   }
+      // }
 
       // Dispose image when done
-      image.dispose();
-      if (logits != null) {
-        logits.dispose();
-      }
+      // image.dispose();
+      // if (logits != null) {
+      //   logits.dispose();
+      // }
+    
     }
 
     this.timer = requestAnimationFrame(this.animate.bind(this));
@@ -448,12 +455,14 @@ class Main {
       this.ensureModel();
     }
 
-    this.trainStatus.innerText = ' Preparing data...';
+    // this.trainStatus.innerText = ' Preparing data...';
+    console.log("Preparing data for training...");
 
     await this.convertUrlToEmbedding(trainData);
 
     if (this.trainXs.length === 0) {
-      this.trainStatus.innerText = ' No examples to train on';
+      // this.trainStatus.innerText = ' No examples to train on';
+      console.log("No examples to train on");
       return;
     }
 
@@ -464,7 +473,8 @@ class Main {
     const ys = tf.concat(this.trainYs, 0);
 
 
-    this.trainStatus.innerText = ' Training...';
+    // this.trainStatus.innerText = ' Training...';
+    console.log("Training...");
 
     const batchSize = Math.min(batchSize_, xs.shape[0]);
     // const epochs = 10;
@@ -499,7 +509,8 @@ class Main {
         },
 
         onEpochEnd: async (epoch, logs) => {
-          this.trainStatus.innerText = ` Training epoch ${epoch + 1}/${epochs} - loss: ${logs.loss.toFixed(3)} acc: ${logs.acc !== undefined ? logs.acc.toFixed(3) : (logs.accuracy || 0).toFixed(3)}`;
+          // this.trainStatus.innerText = ` Training epoch ${epoch + 1}/${epochs} - loss: ${logs.loss.toFixed(3)} acc: ${logs.acc !== undefined ? logs.acc.toFixed(3) : (logs.accuracy || 0).toFixed(3)}`;
+          console.log(`Epoch ${epoch + 1} / ${epochs}: loss = ${logs.loss.toFixed(3)}, accuracy = ${logs.acc !== undefined ? logs.acc.toFixed(3) : (logs.accuracy || 0).toFixed(3)}`);
           this.ReportProgress(epoch, logs.loss, logs.acc !== undefined ? logs.acc : logs.accuracy || 0);
           await tf.nextFrame();
         },
@@ -523,7 +534,9 @@ class Main {
 
     this.modelTrained = !this.stopTrainingFlag ? true : false;
     this.modelIsImported = false;
-    this.trainStatus.innerText = !this.stopTrainingFlag ? 'Trained' : 'Training Stopped';
+    // this.trainStatus.innerText = !this.stopTrainingFlag ? 'Trained' : 'Training Stopped';
+    // console.log(this.trainingStatus)
+    console.log(this.trainingStatus === 3 ? 'Training completed' : 'Training stopped');
   }
 
 
