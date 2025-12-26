@@ -63,17 +63,14 @@ var Main = function (_BaseModel) {
     _classCallCheck(this, Main);
 
     // Initiate variables
+    // this.infoTexts = [];
     var _this = _possibleConstructorReturn(this, (Main.__proto__ || Object.getPrototypeOf(Main)).call(this));
 
-    _this.infoTexts = [];
     _this.training = -1; // -1 when no class is being captured
     _this.videoPlaying = false;
-    _this.exampleCounts = new Array(NUM_CLASSES).fill(0);
-    // this.trainXs = [];
-    // this.trainYs = [];
+    // this.exampleCounts = new Array(NUM_CLASSES).fill(0);
     _this.modelTrained = false;
     _this.embeddingSize = 1000;
-    // this.capturedDataset = {};
     _this.trainDataset = {};
     _this.model = null;
     _this.modelIsImported = false;
@@ -85,179 +82,40 @@ var Main = function (_BaseModel) {
     // Initiate the page (load mobilenet, etc.)
     _this.bindPage();
 
-    // Create video element that will contain the webcam image
-    _this.video = document.getElementsByTagName('video')[0]; //document.createElement('video');
-    // this.video.setAttribute('autoplay', '');
-    // this.video.setAttribute('playsinline', '');
-    // this.video.style.transform = 'scaleX(-1)'; // Flip the video horizontally
-    // console.log(this.video);
-    // Add video element to DOM
-    // document.body.appendChild(this.video);
+    // Get the video element
+    _this.video = document.getElementsByTagName('video')[0];
 
     // Create training buttons and info texts    
-    // for (let i = 0; i < NUM_CLASSES; i++) {
-    //   const div = document.createElement('div');
-    //   document.body.appendChild(div);
-    //   div.style.marginBottom = '10px';
-    //   div.style.marginTop = '16px';
 
-    //   // Create training button
-    //   const button = document.createElement('button')
-    //   button.innerText = "Capture class " + i;
-    //   div.appendChild(button);
+    var _loop = function _loop(i) {
+      var div = document.createElement('div');
+      document.body.appendChild(div);
+      div.style.marginBottom = '10px';
+      div.style.marginTop = '16px';
 
-    //   // Listen for mouse events when clicking the button
-    //   button.addEventListener('mousedown', () => this.training = i);
-    //   button.addEventListener('mouseup', () => this.training = -1);
+      // Create training button
+      var button = document.createElement('button');
+      button.innerText = "Capture class " + i;
+      div.appendChild(button);
 
-    //   // Create info text
-    //   const infoText = document.createElement('span')
-    //   infoText.innerText = " No examples added";
-    //   div.appendChild(infoText);
-    //   this.infoTexts.push(infoText);
-    // }
+      // Listen for mouse events when clicking the button
+      button.addEventListener('mousedown', function () {
+        return _this.training = i;
+      });
+      button.addEventListener('mouseup', function () {
+        return _this.training = -1;
+      });
 
-    // // Training button
-    // const trainDiv = document.createElement('div');
-    // trainDiv.style.marginTop = '16px';
-    // const trainBtn = document.createElement('button');
-    // trainBtn.innerText = 'Train Model';
-    // trainDiv.appendChild(trainBtn);
-    // this.trainStatus = document.createElement('span');
-    // this.trainStatus.style.marginLeft = '8px';
-    // this.trainStatus.innerText = ' Idle';
-    // trainDiv.appendChild(this.trainStatus);
-    // document.body.appendChild(trainDiv);
+      // Create info text
+      var infoText = document.createElement('span');
+      infoText.innerText = " No examples added";
+      div.appendChild(infoText);
+      _this.infoTexts.push(infoText);
+    };
 
-    // Export model button
-    // const saveModeldiv = document.createElement('div');
-    // saveModeldiv.style.marginTop = '16px';
-    // const saveModelBtn = document.createElement('button');
-    // saveModelBtn.innerText = 'Save Model';
-    // saveModeldiv.appendChild(saveModelBtn);
-    // document.body.appendChild(saveModeldiv);
-
-
-    // import model buttons
-
-    // 1. Create the Model File Input
-    // const loadModeldiv = document.createElement('div');
-    // loadModeldiv.style.marginTop = '16px';
-
-    // const modelInput = document.createElement('input');
-    // modelInput.type = 'file';
-    // modelInput.id = 'model-file-input';
-    // modelInput.accept = '.json';
-
-    // 2. Create the Weights File Input
-    // const weightsInput = document.createElement('input');
-    // weightsInput.type = 'file';
-    // weightsInput.id = 'weights-file-input';
-    // weightsInput.multiple = true; // Use the boolean property, not setAttribute('multiple', 'true')
-
-    // 3. Create the Load Button
-    // const loadButton = document.createElement('button');
-    // loadButton.id = 'load-button';
-    // loadButton.textContent = 'Load Model';
-
-    // 4. Append the elements to the container (or directly to the body)
-    // loadModeldiv.appendChild(modelInput);
-    // loadModeldiv.appendChild(weightsInput);
-    // loadModeldiv.appendChild(loadButton);
-
-    // document.body.appendChild(loadModeldiv);
-
-    // Create the getConfusionMatrix Button
-    // const getConfusionMatrixdiv = document.createElement('div');
-    // getConfusionMatrixdiv.style.marginTop = '16px';
-
-    // const getConfusionMatrixButton = document.createElement('button');
-    // getConfusionMatrixButton.id = 'load-button';
-    // getConfusionMatrixButton.textContent = 'Get Confusion Matrix';
-
-    // getConfusionMatrixdiv.appendChild(getConfusionMatrixButton);
-    // document.body.appendChild(getConfusionMatrixdiv);
-
-
-    // Create the Stop Training Button
-    // const StopTrainingdiv = document.createElement('div');
-    // StopTrainingdiv.style.marginTop = '16px';
-
-    // const StopTrainingButton = document.createElement('button');
-    // StopTrainingButton.id = 'load-button';
-    // StopTrainingButton.textContent = 'Stop Training';
-
-    // StopTrainingdiv.appendChild(StopTrainingButton);
-    // document.body.appendChild(StopTrainingdiv);
-
-
-    // this.stopTrainingFlag = false;
-    // StopTrainingButton.addEventListener('click', async () => {
-    //   this.stopTrainingFlag = true;
-    // });
-
-    // getConfusionMatrixButton.addEventListener('click', async () => {
-    //   await this.buildConfustionMatrix();
-    // });
-
-
-    // trainBtn.addEventListener('click', async () => {
-    //   await this.trainModel(this.capturedDataset,20, 32, .0001);
-    // });
-
-    // saveModelBtn.addEventListener('click', async () => {
-    //   await this.model.save('downloads://my-model');
-    // });
-
-
-    //   document.getElementById('load-button').addEventListener('click', async () => {
-    //     const modelFileInput = document.getElementById('model-file-input');
-    //     const weightsFileInput = document.getElementById('weights-file-input');
-
-    //     // 1. Get the model.json File object
-    //     const modelJsonFile = modelFileInput.files[0];
-
-    //     // 2. Get the Weight File objects (an array)
-    //     const weightFiles = Array.from(weightsFileInput.files);
-
-    //     if (!modelJsonFile || weightFiles.length === 0) {
-    //         console.error('Please select both the model.json and weight files.');
-    //         return;
-    //     }
-
-    //   try {
-    //       // 3. Create the input map required by tf.loadModel()
-    //       // The structure needs to be: { [model.json file name]: model.json File object, ...weight files... }
-    //       const filesMap = new Map();
-
-    //       // Add the model.json file
-    //       filesMap.set(modelJsonFile.name, modelJsonFile);
-
-    //       // Add the weight files
-    //       weightFiles.forEach(file => {
-    //           filesMap.set(file.name, file);
-    //       });
-
-    //       // 4. Load the model using tf.loadModel()
-    //       // Note: tf.loadModel() will accept the Map or an array of Files/Blobs.
-    //       // Using the array of File objects is often simpler for local loading.
-    //       const allFiles = [modelJsonFile, ...weightFiles];
-
-    //       // This is the key part: pass the File objects directly to the function
-    //       this.model = await tf.loadModel(tf.io.browserFiles(allFiles));
-
-    //       console.log('✅ Model loaded successfully from local files!');
-    //       console.log('Model Summary:', this.model.summary());
-    //       this.modelTrained = true
-    //       this.modelIsImported = true;
-    //       trainBtn.innerText = 'Train new Model';
-
-
-    //       // You can now use the 'model' object for inference (e.g., model.predict(...))
-    //   } catch (error) {
-    //       console.error('❌ Error loading model:', error);
-    //   }
-    // });
+    for (var i = 0; i < NUM_CLASSES; i++) {
+      _loop(i);
+    }
 
     // Setup webcam
     navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(function (stream) {
@@ -365,6 +223,9 @@ var Main = function (_BaseModel) {
             case 8:
               probs = _context2.sent;
               classIndex = probs.indexOf(Math.max.apply(Math, _toConsumableArray(probs)));
+              // probs is Float32Array of the prediction probabilities of each class.
+              // classIndex is the index of the highest predicted class.
+
               return _context2.abrupt('return', { probs: probs, classIndex: classIndex });
 
             case 11:
@@ -416,23 +277,6 @@ var Main = function (_BaseModel) {
               classIndex = _ref.classIndex;
 
               console.log(classIndex);
-
-              // for (let i = 0; i < NUM_CLASSES; i++) {
-              //   // Make the predicted class bold
-              //   if (classIndex == i) {
-              //     this.infoTexts[i].style.fontWeight = 'bold';
-              //   } else {
-              //     this.infoTexts[i].style.fontWeight = 'normal';
-              //   }
-
-              //   // Update info text
-              //   if (this.exampleCounts[i] > 0) {
-              //     const pct = (probs[i] * 100).toFixed(1);
-              //     this.infoTexts[i].innerText = ` ${this.exampleCounts[i]} examples - ${pct}%`
-              //   } else {
-              //     this.infoTexts[i].innerText = ` 0 examples`;
-              //   }
-              // }
 
             case 9:
 
@@ -626,13 +470,13 @@ var Main = function (_BaseModel) {
       }, null, this);
     }
   }, {
-    key: 'TrainingDone',
-    value: function TrainingDone() {
+    key: 'reportTrainingDone',
+    value: function reportTrainingDone() {
       console.log("TrainingDone");
     }
   }, {
-    key: 'ReportProgress',
-    value: function ReportProgress(epoch, loss, accuracy) {
+    key: 'reportProgress',
+    value: function reportProgress(epoch, loss, accuracy) {
       console.log("ReportProgress: " + epoch + ", " + loss + ", " + accuracy);
     }
   }, {
@@ -730,9 +574,8 @@ var Main = function (_BaseModel) {
                       while (1) {
                         switch (_context8.prev = _context8.next) {
                           case 0:
-                            // this.trainStatus.innerText = ` Training epoch ${epoch + 1}/${epochs} - loss: ${logs.loss.toFixed(3)} acc: ${logs.acc !== undefined ? logs.acc.toFixed(3) : (logs.accuracy || 0).toFixed(3)}`;
                             console.log('Epoch ' + (epoch + 1) + ' / ' + epochs + ': loss = ' + logs.loss.toFixed(3) + ', accuracy = ' + (logs.acc !== undefined ? logs.acc.toFixed(3) : (logs.accuracy || 0).toFixed(3)));
-                            _this3.ReportProgress(epoch, logs.loss, logs.acc !== undefined ? logs.acc : logs.accuracy || 0);
+                            _this3.reportProgress(epoch, logs.loss, logs.acc !== undefined ? logs.acc : logs.accuracy || 0);
                             _context8.next = 4;
                             return regeneratorRuntime.awrap(tf.nextFrame());
 
@@ -768,7 +611,7 @@ var Main = function (_BaseModel) {
                         switch (_context10.prev = _context10.next) {
                           case 0:
                             _this3.trainingStatus = 3; // set status to trained
-                            _this3.TrainingDone();
+                            _this3.reportTrainingDone();
 
                           case 2:
                           case 'end':
@@ -781,15 +624,12 @@ var Main = function (_BaseModel) {
               }));
 
             case 18:
-              // console.log('Losses:', losses);
-              // console.log('Accuracies:', accuracies);
+
               xs.dispose();
               ys.dispose();
 
               this.modelTrained = !this.stopTrainingFlag ? true : false;
               this.modelIsImported = false;
-              // this.trainStatus.innerText = !this.stopTrainingFlag ? 'Trained' : 'Training Stopped';
-              // console.log(this.trainingStatus)
               console.log(this.trainingStatus === 3 ? 'Training completed' : 'Training stopped');
 
             case 23:
@@ -812,13 +652,6 @@ var Main = function (_BaseModel) {
               console.log(this.trainXs);
               xs = tf.concat(this.trainXs, 0);
               ys = tf.concat(this.trainYs, 0);
-
-              // Free per-example tensors
-              // this.trainXs.forEach(t => t.dispose());
-              // this.trainYs.forEach(t => t.dispose());
-              // this.trainXs = [];
-              // this.trainYs = [];
-
               rawPredictions = this.model.predict(xs);
 
 
