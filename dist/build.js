@@ -15,18 +15,13 @@ var tf = _interopRequireWildcard(_tfjs);
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
-function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
-
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
 
-// Number of classes to classify
-var NUM_CLASSES = 3;
-// Webcam Image size. Must be 227. 
-var IMAGE_SIZE = 227;
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 var BaseModel = function () {
   function BaseModel() {
@@ -35,6 +30,15 @@ var BaseModel = function () {
     this.capturedDataset = {};
     this.trainXs = [];
     this.trainYs = [];
+    this.embeddingSize = 1000;
+    this.model = null; // The classification head "model" that takes the outputed embeddings from mobilenet
+    this.trainingStatus = 0; // 0: not trained, 1: training, 2: training stopped, 3: trained , 4: imported
+    this.NUM_CLASSES = 3;
+    this.IMAGE_SIZE = 227;
+
+    // Create the whole model
+    this.createBackboneModel();
+    this.createClassificationHead();
   }
 
   // You could comment it, I just added it to give you an idea
@@ -51,84 +55,10 @@ var BaseModel = function () {
       }
       this.capturedDataset[key].push(value);
     }
-  }]);
-
-  return BaseModel;
-}();
-
-var Main = function (_BaseModel) {
-  _inherits(Main, _BaseModel);
-
-  function Main() {
-    _classCallCheck(this, Main);
-
-    // Initiate variables
-    // this.infoTexts = [];
-    var _this = _possibleConstructorReturn(this, (Main.__proto__ || Object.getPrototypeOf(Main)).call(this));
-
-    _this.training = -1; // -1 when no class is being captured
-    _this.videoPlaying = false;
-    // this.exampleCounts = new Array(NUM_CLASSES).fill(0);
-    _this.modelTrained = false;
-    _this.embeddingSize = 1000;
-    _this.trainDataset = {};
-    _this.model = null;
-    _this.modelIsImported = false;
-    _this.trainingStatus = 0; // 0: not trained, 1: training, 2: training stopped, 3: trained , 4: imported
-
-    _this.canvas = document.getElementById("canvas");
-    _this.ctx = canvas.getContext("2d");
-
-    // Initiate the page (load mobilenet, etc.)
-    _this.bindPage();
-
-    // Get the video element
-    _this.video = document.getElementsByTagName('video')[0];
-
-    // Create training buttons and info texts    
-    // for (let i = 0; i < NUM_CLASSES; i++) {
-    //   const div = document.createElement('div');
-    //   document.body.appendChild(div);
-    //   div.style.marginBottom = '10px';
-    //   div.style.marginTop = '16px';
-
-    //   // Create training button
-    //   const button = document.createElement('button')
-    //   button.innerText = "Capture class " + i;
-    //   div.appendChild(button);
-
-    //   // Listen for mouse events when clicking the button
-    //   button.addEventListener('mousedown', () => this.training = i);
-    //   button.addEventListener('mouseup', () => this.training = -1);
-
-    //   // Create info text
-    //   const infoText = document.createElement('span')
-    //   infoText.innerText = " No examples added";
-    //   div.appendChild(infoText);
-    //   // this.infoTexts.push(infoText);
-    // }
-
-
-    // Setup webcam
-    navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(function (stream) {
-      _this.video.srcObject = stream;
-      _this.video.width = IMAGE_SIZE;
-      _this.video.height = IMAGE_SIZE;
-
-      _this.video.addEventListener('playing', function () {
-        return _this.videoPlaying = true;
-      });
-      _this.video.addEventListener('paused', function () {
-        return _this.videoPlaying = false;
-      });
-    });
-    return _this;
-  }
-
-  _createClass(Main, [{
-    key: 'bindPage',
-    value: function bindPage() {
-      return regeneratorRuntime.async(function bindPage$(_context) {
+  }, {
+    key: 'createBackboneModel',
+    value: function createBackboneModel() {
+      return regeneratorRuntime.async(function createBackboneModel$(_context) {
         while (1) {
           switch (_context.prev = _context.next) {
             case 0:
@@ -138,9 +68,7 @@ var Main = function (_BaseModel) {
             case 2:
               this.mobilenet = _context.sent;
 
-              this.start();
-
-            case 4:
+            case 3:
             case 'end':
               return _context.stop();
           }
@@ -148,135 +76,34 @@ var Main = function (_BaseModel) {
       }, null, this);
     }
   }, {
-    key: 'ensureModel',
-    value: function ensureModel() {
-
-      this.model = tf.sequential();
-      this.model.add(tf.layers.dense({
-        inputShape: [this.embeddingSize],
-        units: 128,
-        activation: 'relu',
-        kernelInitializer: 'varianceScaling'
-      }));
-      this.model.add(tf.layers.dense({
-        units: NUM_CLASSES,
-        activation: 'softmax',
-        kernelInitializer: 'varianceScaling'
-      }));
-      this.model.compile({
-        optimizer: tf.train.adam(0.001),
-        loss: 'categoricalCrossentropy',
-        metrics: ['accuracy']
-      });
-    }
-  }, {
-    key: 'start',
-    value: function start() {
-      if (this.timer) {
-        this.stop();
-      }
-      this.video.play();
-
-      this.timer = requestAnimationFrame(this.animate.bind(this));
-    }
-  }, {
-    key: 'stop',
-    value: function stop() {
-      this.video.pause();
-      cancelAnimationFrame(this.timer);
-    }
-  }, {
-    key: 'test',
-    value: function test(source) {
-      var _this2 = this;
-
-      var image, logits, infer, emb, preds, probs, classIndex;
-      return regeneratorRuntime.async(function test$(_context2) {
+    key: 'createClassificationHead',
+    value: function createClassificationHead() {
+      return regeneratorRuntime.async(function createClassificationHead$(_context2) {
         while (1) {
           switch (_context2.prev = _context2.next) {
             case 0:
 
-              // Source could be image, video or canvas element
-              image = tf.fromPixels(source);
-              logits = void 0;
+              this.model = tf.sequential();
+              this.model.add(tf.layers.dense({
+                inputShape: [this.embeddingSize],
+                units: 128,
+                activation: 'relu',
+                kernelInitializer: 'varianceScaling'
+              }));
+              this.model.add(tf.layers.dense({
+                units: this.NUM_CLASSES,
+                activation: 'softmax',
+                kernelInitializer: 'varianceScaling'
+              }));
+              this.model.compile({
+                optimizer: tf.train.adam(0.001),
+                loss: 'categoricalCrossentropy',
+                metrics: ['accuracy']
+              });
 
-              // 'conv_preds' is the logits activation of MobileNet.
-
-              infer = function infer() {
-                return _this2.mobilenet.infer(image, 'conv_preds');
-              };
-
-              logits = infer();
-              emb = logits.as2D(1, -1);
-              preds = this.model.predict(emb);
-              _context2.next = 8;
-              return regeneratorRuntime.awrap(preds.data());
-
-            case 8:
-              probs = _context2.sent;
-              classIndex = probs.indexOf(Math.max.apply(Math, _toConsumableArray(probs)));
-              // probs is Float32Array of the prediction probabilities of each class.
-              // classIndex is the index of the highest predicted class.
-
-              return _context2.abrupt('return', { probs: probs, classIndex: classIndex });
-
-            case 11:
+            case 4:
             case 'end':
               return _context2.stop();
-          }
-        }
-      }, null, this);
-    }
-  }, {
-    key: 'animate',
-    value: function animate() {
-      var dataURL, _ref, probs, classIndex;
-
-      return regeneratorRuntime.async(function animate$(_context3) {
-        while (1) {
-          switch (_context3.prev = _context3.next) {
-            case 0:
-              if (!this.videoPlaying) {
-                _context3.next = 9;
-                break;
-              }
-
-              // Capture examples if one of the buttons is held down
-              if (this.training != -1) {
-
-                // Draw the video frame to the canvas
-                this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
-
-                // Convert to image data or base64 image
-                dataURL = this.canvas.toDataURL("image/png");
-
-                // Add the image to the dataset object
-
-                this.addToDict(this.training, dataURL);
-              }
-
-              if (!this.modelTrained) {
-                _context3.next = 9;
-                break;
-              }
-
-              _context3.next = 5;
-              return regeneratorRuntime.awrap(this.test(this.video));
-
-            case 5:
-              _ref = _context3.sent;
-              probs = _ref.probs;
-              classIndex = _ref.classIndex;
-
-              console.log(classIndex);
-
-            case 9:
-
-              this.timer = requestAnimationFrame(this.animate.bind(this));
-
-            case 10:
-            case 'end':
-              return _context3.stop();
           }
         }
       }, null, this);
@@ -285,9 +112,9 @@ var Main = function (_BaseModel) {
     key: 'imageBase64ToTensor',
     value: function imageBase64ToTensor(base64DataUrl) {
       var img, imgLoadPromise, loadedImg, tensor;
-      return regeneratorRuntime.async(function imageBase64ToTensor$(_context4) {
+      return regeneratorRuntime.async(function imageBase64ToTensor$(_context3) {
         while (1) {
-          switch (_context4.prev = _context4.next) {
+          switch (_context3.prev = _context3.next) {
             case 0:
 
               // 1. Create a new Image object
@@ -308,20 +135,20 @@ var Main = function (_BaseModel) {
               img.src = base64DataUrl;
 
               // 4. Wait for the image to load
-              _context4.next = 6;
+              _context3.next = 6;
               return regeneratorRuntime.awrap(imgLoadPromise);
 
             case 6:
-              loadedImg = _context4.sent;
+              loadedImg = _context3.sent;
 
 
               // 5. Convert the loaded image element into a tensor
               tensor = tf.fromPixels(loadedImg);
-              return _context4.abrupt('return', tensor);
+              return _context3.abrupt('return', tensor);
 
             case 9:
             case 'end':
-              return _context4.stop();
+              return _context3.stop();
           }
         }
       }, null, this);
@@ -331,43 +158,43 @@ var Main = function (_BaseModel) {
     value: function convertUrlToEmbedding(trainData) {
       var logits, key, _iteratorNormalCompletion, _didIteratorError, _iteratorError, _iterator, _step, imageURL, image, emb;
 
-      return regeneratorRuntime.async(function convertUrlToEmbedding$(_context5) {
+      return regeneratorRuntime.async(function convertUrlToEmbedding$(_context4) {
         while (1) {
-          switch (_context5.prev = _context5.next) {
+          switch (_context4.prev = _context4.next) {
             case 0:
 
               // The outputed logits from mobilenet
               logits = void 0;
 
-              this.ensureModel();
+              this.createClassificationHead();
 
-              _context5.t0 = regeneratorRuntime.keys(trainData);
+              _context4.t0 = regeneratorRuntime.keys(trainData);
 
             case 3:
-              if ((_context5.t1 = _context5.t0()).done) {
-                _context5.next = 41;
+              if ((_context4.t1 = _context4.t0()).done) {
+                _context4.next = 41;
                 break;
               }
 
-              key = _context5.t1.value;
+              key = _context4.t1.value;
               _iteratorNormalCompletion = true;
               _didIteratorError = false;
               _iteratorError = undefined;
-              _context5.prev = 8;
+              _context4.prev = 8;
               _iterator = trainData[key][Symbol.iterator]();
 
             case 10:
               if (_iteratorNormalCompletion = (_step = _iterator.next()).done) {
-                _context5.next = 25;
+                _context4.next = 25;
                 break;
               }
 
               imageURL = _step.value;
-              _context5.next = 14;
+              _context4.next = 14;
               return regeneratorRuntime.awrap(this.imageBase64ToTensor(imageURL));
 
             case 14:
-              image = _context5.sent;
+              image = _context4.sent;
 
 
               // 'conv_preds' is the logits activation of MobileNet.
@@ -379,7 +206,7 @@ var Main = function (_BaseModel) {
               // Store the embedding and the label
 
               this.trainXs.push(emb.clone());
-              this.trainYs.push(tf.oneHot(tf.tensor1d([key]).toInt(), NUM_CLASSES));
+              this.trainYs.push(tf.oneHot(tf.tensor1d([key]).toInt(), this.NUM_CLASSES));
 
               // Dispose tensors to free memory
               image.dispose();
@@ -388,149 +215,106 @@ var Main = function (_BaseModel) {
 
             case 22:
               _iteratorNormalCompletion = true;
-              _context5.next = 10;
+              _context4.next = 10;
               break;
 
             case 25:
-              _context5.next = 31;
+              _context4.next = 31;
               break;
 
             case 27:
-              _context5.prev = 27;
-              _context5.t2 = _context5['catch'](8);
+              _context4.prev = 27;
+              _context4.t2 = _context4['catch'](8);
               _didIteratorError = true;
-              _iteratorError = _context5.t2;
+              _iteratorError = _context4.t2;
 
             case 31:
-              _context5.prev = 31;
-              _context5.prev = 32;
+              _context4.prev = 31;
+              _context4.prev = 32;
 
               if (!_iteratorNormalCompletion && _iterator.return) {
                 _iterator.return();
               }
 
             case 34:
-              _context5.prev = 34;
+              _context4.prev = 34;
 
               if (!_didIteratorError) {
-                _context5.next = 37;
+                _context4.next = 37;
                 break;
               }
 
               throw _iteratorError;
 
             case 37:
-              return _context5.finish(34);
+              return _context4.finish(34);
 
             case 38:
-              return _context5.finish(31);
+              return _context4.finish(31);
 
             case 39:
-              _context5.next = 3;
+              _context4.next = 3;
               break;
 
             case 41:
             case 'end':
-              return _context5.stop();
+              return _context4.stop();
           }
         }
       }, null, this, [[8, 27, 31, 39], [32,, 34, 38]]);
     }
   }, {
-    key: 'stopTraining',
-    value: function stopTraining() {
-      return regeneratorRuntime.async(function stopTraining$(_context6) {
-        while (1) {
-          switch (_context6.prev = _context6.next) {
-            case 0:
-              if (!(this.trainingStatus === 1)) {
-                _context6.next = 3;
-                break;
-              }
-
-              this.trainingStatus = 2; // set status to training stopped
-              return _context6.abrupt('return', true);
-
-            case 3:
-              return _context6.abrupt('return', false);
-
-            case 4:
-            case 'end':
-              return _context6.stop();
-          }
-        }
-      }, null, this);
-    }
-  }, {
-    key: 'reportTrainingDone',
-    value: function reportTrainingDone() {
-      console.log("TrainingDone");
-    }
-  }, {
-    key: 'reportProgress',
-    value: function reportProgress(epoch, loss, accuracy) {
-      console.log("ReportProgress: " + epoch + ", " + loss + ", " + accuracy);
-    }
-  }, {
     key: 'trainModel',
     value: function trainModel(trainData, epochs, batchSize_, lr) {
-      var _this3 = this;
+      var _this = this;
 
       var xs, ys, batchSize, LEARNING_RATE, optimizer;
-      return regeneratorRuntime.async(function trainModel$(_context11) {
+      return regeneratorRuntime.async(function trainModel$(_context9) {
         while (1) {
-          switch (_context11.prev = _context11.next) {
+          switch (_context9.prev = _context9.next) {
             case 0:
 
-              if (this.modelIsImported) {
-                this.ensureModel();
-              }
-
-              // this.trainStatus.innerText = ' Preparing data...';
               console.log("Preparing data for training...");
 
-              _context11.next = 4;
+              // Convert all images to embeddings
+              _context9.next = 3;
               return regeneratorRuntime.awrap(this.convertUrlToEmbedding(trainData));
 
-            case 4:
+            case 3:
               if (!(this.trainXs.length === 0)) {
-                _context11.next = 7;
+                _context9.next = 6;
                 break;
               }
 
-              // this.trainStatus.innerText = ' No examples to train on';
               console.log("No examples to train on");
-              return _context11.abrupt('return');
+              return _context9.abrupt('return');
 
-            case 7:
-              _context11.next = 9;
+            case 6:
+              _context9.next = 8;
               return regeneratorRuntime.awrap(tf.nextFrame());
 
-            case 9:
+            case 8:
 
               // Stack examples
               xs = tf.concat(this.trainXs, 0);
               ys = tf.concat(this.trainYs, 0);
 
-              // this.trainStatus.innerText = ' Training...';
 
               console.log("Training...");
 
+              // Define the batch size
               batchSize = Math.min(batchSize_, xs.shape[0]);
-              // const epochs = 10;
-              // const losses = [];
-              // const accuracies = [];
 
-              // 1. Define the learning rate
+              // Define the learning rate
 
               LEARNING_RATE = lr; // Common small positive value
 
-              // 2. Create an optimizer with the specified learning rate
+              // Create an optimizer with the specified learning rate
               // For example, using the Adam optimizer, which is a popular choice
 
               optimizer = tf.train.adam(LEARNING_RATE);
 
-              // 3. Compile the model, specifying the optimizer, loss function, and metrics
+              // Compile the model, specifying the optimizer, loss function, and metrics
 
               this.model.compile({
                 optimizer: optimizer,
@@ -538,7 +322,8 @@ var Main = function (_BaseModel) {
                 metrics: ['accuracy'] // Example metric
               });
 
-              _context11.next = 18;
+              // Train the model
+              _context9.next = 17;
               return regeneratorRuntime.awrap(this.model.fit(xs, ys, {
                 batchSize: batchSize,
                 epochs: epochs,
@@ -546,87 +331,155 @@ var Main = function (_BaseModel) {
                 // learningRate: lr,
                 callbacks: {
                   onTrainBegin: function onTrainBegin() {
-                    return regeneratorRuntime.async(function onTrainBegin$(_context7) {
+                    return regeneratorRuntime.async(function onTrainBegin$(_context5) {
                       while (1) {
-                        switch (_context7.prev = _context7.next) {
+                        switch (_context5.prev = _context5.next) {
                           case 0:
-                            _this3.trainingStatus = 1; // set status to training
+                            _this.trainingStatus = 1; // set status to training
                             console.log("Training started");
 
                           case 2:
                           case 'end':
-                            return _context7.stop();
+                            return _context5.stop();
                         }
                       }
-                    }, null, _this3);
+                    }, null, _this);
                   },
 
                   onEpochEnd: function onEpochEnd(epoch, logs) {
-                    return regeneratorRuntime.async(function onEpochEnd$(_context8) {
+                    return regeneratorRuntime.async(function onEpochEnd$(_context6) {
                       while (1) {
-                        switch (_context8.prev = _context8.next) {
+                        switch (_context6.prev = _context6.next) {
                           case 0:
-                            console.log('Epoch ' + (epoch + 1) + ' / ' + epochs + ': loss = ' + logs.loss.toFixed(3) + ', accuracy = ' + (logs.acc !== undefined ? logs.acc.toFixed(3) : (logs.accuracy || 0).toFixed(3)));
-                            _this3.reportProgress(epoch, logs.loss, logs.acc !== undefined ? logs.acc : logs.accuracy || 0);
-                            _context8.next = 4;
-                            return regeneratorRuntime.awrap(tf.nextFrame());
-
-                          case 4:
-                          case 'end':
-                            return _context8.stop();
-                        }
-                      }
-                    }, null, _this3);
-                  },
-                  onBatchEnd: function onBatchEnd(batch, logs) {
-                    return regeneratorRuntime.async(function onBatchEnd$(_context9) {
-                      while (1) {
-                        switch (_context9.prev = _context9.next) {
-                          case 0:
-                            if (_this3.trainingStatus === 2) {
-                              _this3.model.stopTraining = true;
-                            }
-                            _context9.next = 3;
+                            _this.reportProgress(epoch, epochs, logs);
+                            _context6.next = 3;
                             return regeneratorRuntime.awrap(tf.nextFrame());
 
                           case 3:
                           case 'end':
-                            return _context9.stop();
+                            return _context6.stop();
                         }
                       }
-                    }, null, _this3);
+                    }, null, _this);
+                  },
+
+                  onBatchEnd: function onBatchEnd(batch, logs) {
+                    return regeneratorRuntime.async(function onBatchEnd$(_context7) {
+                      while (1) {
+                        switch (_context7.prev = _context7.next) {
+                          case 0:
+                            if (_this.trainingStatus === 2) {
+                              _this.model.stopTraining = true;
+                            }
+                            _context7.next = 3;
+                            return regeneratorRuntime.awrap(tf.nextFrame());
+
+                          case 3:
+                          case 'end':
+                            return _context7.stop();
+                        }
+                      }
+                    }, null, _this);
                   },
 
                   onTrainEnd: function onTrainEnd() {
-                    return regeneratorRuntime.async(function onTrainEnd$(_context10) {
+                    return regeneratorRuntime.async(function onTrainEnd$(_context8) {
                       while (1) {
-                        switch (_context10.prev = _context10.next) {
+                        switch (_context8.prev = _context8.next) {
                           case 0:
-                            _this3.trainingStatus = 3; // set status to trained
-                            _this3.reportTrainingDone();
+                            _this.trainingStatus = 3; // set status to trained
+                            _this.reportTrainingDone();
 
                           case 2:
                           case 'end':
-                            return _context10.stop();
+                            return _context8.stop();
                         }
                       }
-                    }, null, _this3);
+                    }, null, _this);
                   }
                 }
               }));
 
-            case 18:
+            case 17:
 
               xs.dispose();
               ys.dispose();
 
-              this.modelTrained = !this.stopTrainingFlag ? true : false;
-              this.modelIsImported = false;
+              // this.modelTrained = !this.stopTrainingFlag ? true : false;
+              // this.modelIsImported = false;
               console.log(this.trainingStatus === 3 ? 'Training completed' : 'Training stopped');
 
-            case 23:
+            case 20:
             case 'end':
-              return _context11.stop();
+              return _context9.stop();
+          }
+        }
+      }, null, this);
+    }
+  }, {
+    key: 'reportProgress',
+    value: function reportProgress(epoch, epochs, logs) {
+      console.log('Epoch ' + (epoch + 1) + ' / ' + epochs + ': loss = ' + logs.loss.toFixed(3) + ', accuracy = ' + (logs.acc !== undefined ? logs.acc.toFixed(3) : (logs.accuracy || 0).toFixed(3)));
+    }
+  }, {
+    key: 'stopTraining',
+    value: function stopTraining() {
+      if (this.trainingStatus === 1) {
+        this.trainingStatus = 2; // set status to training stopped
+        return true;
+      }
+      return false;
+    }
+  }, {
+    key: 'reportTrainingDone',
+    value: function reportTrainingDone() {
+      console.log("TrainingDone");
+    }
+  }, {
+    key: 'test',
+    value: function test(source) {
+      var _this2 = this;
+
+      var image, logits, infer, emb, preds, probs, classIndex;
+      return regeneratorRuntime.async(function test$(_context10) {
+        while (1) {
+          switch (_context10.prev = _context10.next) {
+            case 0:
+
+              // Source could be image, video or canvas element
+              image = tf.fromPixels(source);
+
+              // Define the logits
+
+              logits = void 0;
+
+              // 'conv_preds' is the logits activation of MobileNet.
+
+              infer = function infer() {
+                return _this2.mobilenet.infer(image, 'conv_preds');
+              };
+
+              // Infering
+
+
+              logits = infer();
+
+              // Convert is as 2D array to feed it to the classification model
+              emb = logits.as2D(1, -1);
+              preds = this.model.predict(emb);
+              _context10.next = 8;
+              return regeneratorRuntime.awrap(preds.data());
+
+            case 8:
+              probs = _context10.sent;
+              // probs is Float32Array of the prediction probabilities of each class.
+              classIndex = probs.indexOf(Math.max.apply(Math, _toConsumableArray(probs))); // classIndex is the index of the highest predicted class.
+
+              return _context10.abrupt('return', { probs: probs, classIndex: classIndex });
+
+            case 11:
+            case 'end':
+              return _context10.stop();
           }
         }
       }, null, this);
@@ -635,15 +488,17 @@ var Main = function (_BaseModel) {
     key: 'buildConfustionMatrix',
     value: function buildConfustionMatrix() {
       var xs, ys, rawPredictions, predictedClassIndices, trueClassIndices, maxTrueClassIndex, confusionMatrix;
-      return regeneratorRuntime.async(function buildConfustionMatrix$(_context12) {
+      return regeneratorRuntime.async(function buildConfustionMatrix$(_context11) {
         while (1) {
-          switch (_context12.prev = _context12.next) {
+          switch (_context11.prev = _context11.next) {
             case 0:
 
               // Stack examples
-              console.log(this.trainXs);
               xs = tf.concat(this.trainXs, 0);
               ys = tf.concat(this.trainYs, 0);
+
+              // Get the predictions from the model
+
               rawPredictions = this.model.predict(xs);
 
 
@@ -658,15 +513,174 @@ var Main = function (_BaseModel) {
               maxTrueClassIndex = tf.max(trueClassIndices).dataSync()[0];
 
               console.log("Max true class index:", maxTrueClassIndex);
-              confusionMatrix = tf.math.confusionMatrix(trueClassIndices, predictedClassIndices, NUM_CLASSES);
+              confusionMatrix = tf.math.confusionMatrix(trueClassIndices, predictedClassIndices, this.NUM_CLASSES);
 
               // Print the resulting Confusion Matrix Tensor
 
               confusionMatrix.print();
 
-            case 13:
+            case 12:
+            case 'end':
+              return _context11.stop();
+          }
+        }
+      }, null, this);
+    }
+  }]);
+
+  return BaseModel;
+}();
+
+var Main = function (_BaseModel) {
+  _inherits(Main, _BaseModel);
+
+  function Main() {
+    _classCallCheck(this, Main);
+
+    // Initiate variables
+    var _this3 = _possibleConstructorReturn(this, (Main.__proto__ || Object.getPrototypeOf(Main)).call(this));
+
+    _this3.training = -1; // -1 when no class is being captured
+    _this3.videoPlaying = false;
+    _this3.canvas = document.getElementById("canvas");
+    _this3.ctx = canvas.getContext("2d");
+
+    // Get the video element
+    _this3.video = document.getElementsByTagName('video')[0];
+
+    // Create training buttons and info texts    
+
+    var _loop = function _loop(i) {
+      var div = document.createElement('div');
+      document.body.appendChild(div);
+      div.style.marginBottom = '10px';
+      div.style.marginTop = '16px';
+
+      // Create training button
+      var button = document.createElement('button');
+      button.innerText = "Capture class " + i;
+      div.appendChild(button);
+
+      // Listen for mouse events when clicking the button
+      button.addEventListener('mousedown', function () {
+        return _this3.training = i;
+      });
+      button.addEventListener('mouseup', function () {
+        return _this3.training = -1;
+      });
+
+      // Create info text
+      var infoText = document.createElement('span');
+      infoText.innerText = " No examples added";
+      div.appendChild(infoText);
+      // this.infoTexts.push(infoText);
+    };
+
+    for (var i = 0; i < _this3.NUM_CLASSES; i++) {
+      _loop(i);
+    }
+
+    // Setup webcam
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(function (stream) {
+      _this3.video.srcObject = stream;
+      _this3.video.width = _this3.IMAGE_SIZE;
+      _this3.video.height = _this3.IMAGE_SIZE;
+
+      _this3.video.addEventListener('playing', function () {
+        return _this3.videoPlaying = true;
+      });
+      _this3.video.addEventListener('paused', function () {
+        return _this3.videoPlaying = false;
+      });
+    });
+
+    _this3.bindPage();
+    return _this3;
+  }
+
+  _createClass(Main, [{
+    key: 'bindPage',
+    value: function bindPage() {
+      return regeneratorRuntime.async(function bindPage$(_context12) {
+        while (1) {
+          switch (_context12.prev = _context12.next) {
+            case 0:
+              // this.mobilenet = await mobilenetModule.load();
+              this.start();
+
+            case 1:
             case 'end':
               return _context12.stop();
+          }
+        }
+      }, null, this);
+    }
+  }, {
+    key: 'start',
+    value: function start() {
+      if (this.timer) {
+        this.stop();
+      }
+      this.video.play();
+
+      this.timer = requestAnimationFrame(this.animate.bind(this));
+    }
+  }, {
+    key: 'stop',
+    value: function stop() {
+      this.video.pause();
+      cancelAnimationFrame(this.timer);
+    }
+  }, {
+    key: 'animate',
+    value: function animate() {
+      var dataURL, _ref, probs, classIndex;
+
+      return regeneratorRuntime.async(function animate$(_context13) {
+        while (1) {
+          switch (_context13.prev = _context13.next) {
+            case 0:
+              if (!this.videoPlaying) {
+                _context13.next = 9;
+                break;
+              }
+
+              // Capture examples if one of the buttons is held down
+              if (this.training != -1) {
+
+                // Draw the video frame to the canvas
+                this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+
+                // Convert to image data or base64 image
+                dataURL = this.canvas.toDataURL("image/png");
+
+                // Add the image to the dataset object
+
+                this.addToDict(this.training, dataURL);
+              }
+
+              if (!(this.trainingStatus == 3 || this.trainingStatus == 4)) {
+                _context13.next = 9;
+                break;
+              }
+
+              _context13.next = 5;
+              return regeneratorRuntime.awrap(this.test(this.video));
+
+            case 5:
+              _ref = _context13.sent;
+              probs = _ref.probs;
+              classIndex = _ref.classIndex;
+
+              console.log(classIndex);
+
+            case 9:
+
+              this.timer = requestAnimationFrame(this.animate.bind(this));
+
+            case 10:
+            case 'end':
+              return _context13.stop();
           }
         }
       }, null, this);
@@ -675,8 +689,6 @@ var Main = function (_BaseModel) {
 
   return Main;
 }(BaseModel);
-
-// window.addEventListener('load', () => new Main());
 
 window.addEventListener('load', function () {
   window.app = new Main();
