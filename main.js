@@ -2,19 +2,25 @@ import "@babel/polyfill";
 import * as mobilenetModule from '@tensorflow-models/mobilenet';
 import * as tf from '@tensorflow/tfjs';
 
-// Number of classes to classify
-const NUM_CLASSES = 3;
-// Webcam Image size. Must be 227. 
-const IMAGE_SIZE = 227;
-
 class BaseModel{
+
   constructor() {
     this.capturedDataset = {};
     this.trainXs = [];
     this.trainYs = [];
+    this.embeddingSize = 1000;
+    this.model = null; // The classification head "model" that takes the outputed embeddings from mobilenet
+    this.trainingStatus = 0; // 0: not trained, 1: training, 2: training stopped, 3: trained , 4: imported
+    this.NUM_CLASSES = 3;
+    this.IMAGE_SIZE = 227;
+
+    // Create the whole model
+    this.createBackboneModel()
+    this.createClassificationHead()
 
   }
 
+  
   // You could comment it, I just added it to give you an idea
   addToDict(key, value) {
 
@@ -26,79 +32,13 @@ class BaseModel{
     this.capturedDataset[key].push(value);
   }
 
-}
 
-
-class Main extends BaseModel {
-
-  constructor() {
-    super();
-    // Initiate variables
-    // this.infoTexts = [];
-    this.training = -1; // -1 when no class is being captured
-    this.videoPlaying = false;
-    // this.exampleCounts = new Array(NUM_CLASSES).fill(0);
-    this.modelTrained = false;
-    this.embeddingSize = 1000;
-    this.trainDataset = {};
-    this.model = null;
-    this.modelIsImported = false;
-    this.trainingStatus = 0; // 0: not trained, 1: training, 2: training stopped, 3: trained , 4: imported
-
-    this.canvas = document.getElementById("canvas");
-    this.ctx = canvas.getContext("2d");
-
-
-    // Initiate the page (load mobilenet, etc.)
-    this.bindPage();
-
-    // Get the video element
-    this.video = document.getElementsByTagName('video')[0];
-
-    // Create training buttons and info texts    
-    // for (let i = 0; i < NUM_CLASSES; i++) {
-    //   const div = document.createElement('div');
-    //   document.body.appendChild(div);
-    //   div.style.marginBottom = '10px';
-    //   div.style.marginTop = '16px';
-
-    //   // Create training button
-    //   const button = document.createElement('button')
-    //   button.innerText = "Capture class " + i;
-    //   div.appendChild(button);
-
-    //   // Listen for mouse events when clicking the button
-    //   button.addEventListener('mousedown', () => this.training = i);
-    //   button.addEventListener('mouseup', () => this.training = -1);
-
-    //   // Create info text
-    //   const infoText = document.createElement('span')
-    //   infoText.innerText = " No examples added";
-    //   div.appendChild(infoText);
-    //   // this.infoTexts.push(infoText);
-    // }
-
-
-
-    // Setup webcam
-    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-      .then((stream) => {
-        this.video.srcObject = stream;
-        this.video.width = IMAGE_SIZE;
-        this.video.height = IMAGE_SIZE;
-
-        this.video.addEventListener('playing', () => this.videoPlaying = true);
-        this.video.addEventListener('paused', () => this.videoPlaying = false);
-      })
-  }
-
-  async bindPage() {
+  async createBackboneModel(){
     this.mobilenet = await mobilenetModule.load();
-    this.start();
   }
 
 
-  ensureModel() {
+  async createClassificationHead() {
 
     this.model = tf.sequential();
     this.model.add(tf.layers.dense({
@@ -108,7 +48,7 @@ class Main extends BaseModel {
       kernelInitializer: 'varianceScaling'
     }));
     this.model.add(tf.layers.dense({
-      units: NUM_CLASSES,
+      units: this.NUM_CLASSES,
       activation: 'softmax',
       kernelInitializer: 'varianceScaling'
     }));
@@ -117,77 +57,6 @@ class Main extends BaseModel {
       loss: 'categoricalCrossentropy',
       metrics: ['accuracy']
     });
-  }
-
-
-  start() {
-    if (this.timer) {
-      this.stop();
-    }
-    this.video.play();
-    
-    this.timer = requestAnimationFrame(this.animate.bind(this));
-  }
-
-
-  stop() {
-    this.video.pause();
-    cancelAnimationFrame(this.timer);
-  }
-
-
-  async test(source){
-
-    // Source could be image, video or canvas element
-    const image = tf.fromPixels(source);
-    let logits;
-
-    // 'conv_preds' is the logits activation of MobileNet.
-    const infer = () => this.mobilenet.infer(image, 'conv_preds');
-
-    logits = infer();
-    const emb = logits.as2D(1, -1);
-    const preds = this.model.predict(emb);
-    const probs = await preds.data();
-    const classIndex = probs.indexOf(Math.max(...probs));
-    // probs is Float32Array of the prediction probabilities of each class.
-    // classIndex is the index of the highest predicted class.
-    return {probs, classIndex};
-
-  }
-
-
-  async animate() {
-
-    if (this.videoPlaying) {
-
-      // Capture examples if one of the buttons is held down
-      if (this.training != -1) {
-
-        // Draw the video frame to the canvas
-        this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
-
-        // Convert to image data or base64 image
-        const dataURL = this.canvas.toDataURL("image/png");
-        
-        // Add the image to the dataset object
-        this.addToDict(this.training, dataURL);
-
-      }
-
-
-      if (this.modelTrained) {
-
-        // If the model is trained run test
-        const {probs, classIndex} = await this.test(this.video);
-        console.log(classIndex);
-
-      }
-
-    
-    }
-
-    this.timer = requestAnimationFrame(this.animate.bind(this));
   }
 
 
@@ -220,7 +89,7 @@ class Main extends BaseModel {
 
       // The outputed logits from mobilenet
       let logits;
-      this.ensureModel();
+      this.createClassificationHead();
       
       for (const key in trainData) {
 
@@ -237,7 +106,7 @@ class Main extends BaseModel {
 
           // Store the embedding and the label
           this.trainXs.push(emb.clone());
-          this.trainYs.push(tf.oneHot(tf.tensor1d([key]).toInt(), NUM_CLASSES));
+          this.trainYs.push(tf.oneHot(tf.tensor1d([key]).toInt(), this.NUM_CLASSES));
 
           // Dispose tensors to free memory
           image.dispose();
@@ -250,39 +119,15 @@ class Main extends BaseModel {
 
   }
 
-  async stopTraining() {
-    if (this.trainingStatus === 1){
-      this.trainingStatus = 2; // set status to training stopped
-      return true;
-    }
-    return false;
-  }
-
-  reportTrainingDone()
-  {
-    console.log("TrainingDone");
-  }
-
-
-  reportProgress(epoch, loss, accuracy)
-  {
-      console.log("ReportProgress: " + epoch + ", " + loss + ", " + accuracy);
-  }
-
 
   async trainModel(trainData, epochs, batchSize_, lr) {
 
-    if (this.modelIsImported) {
-      this.ensureModel();
-    }
-
-    // this.trainStatus.innerText = ' Preparing data...';
     console.log("Preparing data for training...");
 
+    // Convert all images to embeddings
     await this.convertUrlToEmbedding(trainData);
 
     if (this.trainXs.length === 0) {
-      // this.trainStatus.innerText = ' No examples to train on';
       console.log("No examples to train on");
       return;
     }
@@ -293,23 +138,19 @@ class Main extends BaseModel {
     const xs = tf.concat(this.trainXs, 0);
     const ys = tf.concat(this.trainYs, 0);
 
-
-    // this.trainStatus.innerText = ' Training...';
     console.log("Training...");
-
+    
+    // Define the batch size
     const batchSize = Math.min(batchSize_, xs.shape[0]);
-    // const epochs = 10;
-    // const losses = [];
-    // const accuracies = [];
 
-    // 1. Define the learning rate
+    // Define the learning rate
     const LEARNING_RATE = lr; // Common small positive value
 
-    // 2. Create an optimizer with the specified learning rate
+    // Create an optimizer with the specified learning rate
     // For example, using the Adam optimizer, which is a popular choice
     const optimizer = tf.train.adam(LEARNING_RATE); 
 
-    // 3. Compile the model, specifying the optimizer, loss function, and metrics
+    // Compile the model, specifying the optimizer, loss function, and metrics
     this.model.compile({
       optimizer: optimizer,
       loss: 'categoricalCrossentropy', // Example loss function
@@ -317,7 +158,7 @@ class Main extends BaseModel {
     });
 
 
-
+    // Train the model
     await this.model.fit(xs, ys, {
       batchSize,
       epochs,
@@ -330,10 +171,10 @@ class Main extends BaseModel {
         },
 
         onEpochEnd: async (epoch, logs) => {
-          console.log(`Epoch ${epoch + 1} / ${epochs}: loss = ${logs.loss.toFixed(3)}, accuracy = ${logs.acc !== undefined ? logs.acc.toFixed(3) : (logs.accuracy || 0).toFixed(3)}`);
-          this.reportProgress(epoch, logs.loss, logs.acc !== undefined ? logs.acc : logs.accuracy || 0);
+          this.reportProgress(epoch, epochs, logs);
           await tf.nextFrame();
         },
+
         onBatchEnd: async (batch, logs) => {
           if (this.trainingStatus === 2) {
             this.model.stopTraining = true
@@ -351,21 +192,67 @@ class Main extends BaseModel {
     xs.dispose();
     ys.dispose();
 
-    this.modelTrained = !this.stopTrainingFlag ? true : false;
-    this.modelIsImported = false;
+    // this.modelTrained = !this.stopTrainingFlag ? true : false;
+    // this.modelIsImported = false;
     console.log(this.trainingStatus === 3 ? 'Training completed' : 'Training stopped');
   }
 
 
-  
+  reportProgress(epoch, epochs, logs)
+  {
+    console.log(`Epoch ${epoch + 1} / ${epochs}: loss = ${logs.loss.toFixed(3)}, accuracy = ${logs.acc !== undefined ? logs.acc.toFixed(3) : (logs.accuracy || 0).toFixed(3)}`);
+
+  }
+
+
+  stopTraining() {
+    if (this.trainingStatus === 1){
+      this.trainingStatus = 2; // set status to training stopped
+      return true;
+    }
+    return false;
+  }
+
+
+  reportTrainingDone()
+  {
+    console.log("TrainingDone");
+  }
+
+
+  async test(source){
+
+    // Source could be image, video or canvas element
+    const image = tf.fromPixels(source);
+
+    // Define the logits
+    let logits;
+
+    // 'conv_preds' is the logits activation of MobileNet.
+    const infer = () => this.mobilenet.infer(image, 'conv_preds');
+
+    // Infering
+    logits = infer();
+
+    // Convert is as 2D array to feed it to the classification model
+    const emb = logits.as2D(1, -1);
+    const preds = this.model.predict(emb);
+    
+    const probs = await preds.data(); // probs is Float32Array of the prediction probabilities of each class.
+    const classIndex = probs.indexOf(Math.max(...probs)); // classIndex is the index of the highest predicted class.
+    
+    return {probs, classIndex};
+
+  }
+
+
   async buildConfustionMatrix() {
 
     // Stack examples
-    console.log(this.trainXs)
     const xs = tf.concat(this.trainXs, 0);
     const ys = tf.concat(this.trainYs, 0);
 
-
+    // Get the predictions from the model
     const rawPredictions = this.model.predict(xs);
 
     rawPredictions.print();
@@ -379,17 +266,128 @@ class Main extends BaseModel {
     const confusionMatrix = tf.math.confusionMatrix(
       trueClassIndices,
       predictedClassIndices,
-      NUM_CLASSES
+      this.NUM_CLASSES
     );
 
     // Print the resulting Confusion Matrix Tensor
     confusionMatrix.print();
   }
+
+
 }
 
 
+class Main extends BaseModel {
 
-// window.addEventListener('load', () => new Main());
+  constructor() {
+    super();
+    // Initiate variables
+    this.training = -1; // -1 when no class is being captured
+    this.videoPlaying = false;
+    this.canvas = document.getElementById("canvas");
+    this.ctx = canvas.getContext("2d");
+        
+
+    // Get the video element
+    this.video = document.getElementsByTagName('video')[0];
+
+    // Create training buttons and info texts    
+    for (let i = 0; i < this.NUM_CLASSES; i++) {
+      const div = document.createElement('div');
+      document.body.appendChild(div);
+      div.style.marginBottom = '10px';
+      div.style.marginTop = '16px';
+
+      // Create training button
+      const button = document.createElement('button')
+      button.innerText = "Capture class " + i;
+      div.appendChild(button);
+
+      // Listen for mouse events when clicking the button
+      button.addEventListener('mousedown', () => this.training = i);
+      button.addEventListener('mouseup', () => this.training = -1);
+
+      // Create info text
+      const infoText = document.createElement('span')
+      infoText.innerText = " No examples added";
+      div.appendChild(infoText);
+      // this.infoTexts.push(infoText);
+    }
+
+
+    // Setup webcam
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      .then((stream) => {
+        this.video.srcObject = stream;
+        this.video.width = this.IMAGE_SIZE;
+        this.video.height = this.IMAGE_SIZE;
+
+        this.video.addEventListener('playing', () => this.videoPlaying = true);
+        this.video.addEventListener('paused', () => this.videoPlaying = false);
+      })
+
+      this.bindPage();
+  }
+
+
+  async bindPage() {
+    // this.mobilenet = await mobilenetModule.load();
+    this.start();
+  }
+
+
+  start() {
+    if (this.timer) {
+      this.stop();
+    }
+    this.video.play();
+    
+    this.timer = requestAnimationFrame(this.animate.bind(this));
+  }
+
+
+  stop() {
+    this.video.pause();
+    cancelAnimationFrame(this.timer);
+  }
+
+
+  async animate() {
+
+    if (this.videoPlaying) {
+
+      // Capture examples if one of the buttons is held down
+      if (this.training != -1) {
+
+        // Draw the video frame to the canvas
+        this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+
+        // Convert to image data or base64 image
+        const dataURL = this.canvas.toDataURL("image/png");
+        
+        // Add the image to the dataset object
+        this.addToDict(this.training, dataURL);
+
+      }
+
+
+      if (this.trainingStatus == 3 || this.trainingStatus == 4) {
+
+        // If the model is trained run test
+        const {probs, classIndex} = await this.test(this.video);
+        console.log(classIndex);
+
+      }
+
+    
+    }
+
+    this.timer = requestAnimationFrame(this.animate.bind(this));
+  }
+
+
+}
+
 
 window.addEventListener('load', () => {
   window.app = new Main();
