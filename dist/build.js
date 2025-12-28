@@ -799,13 +799,7 @@ var Main = function (_BaseModel) {
   return ML;
 }(BaseModel);
 
-<<<<<<< Updated upstream
-window.addEventListener('load', function () {
-  window.app = new Main();
-});
-=======
 window.ML = ML;
->>>>>>> Stashed changes
 
 },{"@babel/polyfill":2,"@tensorflow-models/mobilenet":11,"@tensorflow/tfjs":241}],2:[function(require,module,exports){
 (function (global){
