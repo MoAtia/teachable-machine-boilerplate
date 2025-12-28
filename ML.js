@@ -24,6 +24,8 @@ class ML {
   // --- Abstracted Interfaces ---
 
   async StartTraining(trainingData, epochs, batchSize, lr) {
+    // TODO add ReportProgress() function
+    // TODO add TrainingDone() function
     this.trainXs = [];
     this.trainYs = [];
 
@@ -93,20 +95,29 @@ class ML {
   }
 
   StopTraining() {
+    if (this.trainingStatus !== 1) return false;
     if (this.model) this.model.stopTraining = true;
     this.trainingStatus = 2;
+    return true;
+  }
+
+  DisplayConfusionMatrix()
+  {
+    // TODO return Data to be presented
   }
 
   async ExportModel() {
     await this.model.save('downloads://my-model');
+    return true;
   }
 
   async ImportModel(jsonFile, weightsFiles) {
     this.model = await tf.loadLayersModel(tf.io.browserFiles([jsonFile, ...weightsFiles]));
-    this.trainingStatus = 3; 
+    this.trainingStatus = 3;
+    return true;
   }
 
-  async Test(source) {
+  async Test(source) { // TODO change the logic to accept image URL as input
     if (!this.model) return null;
     
     return tf.tidy(() => {
@@ -119,7 +130,7 @@ class ML {
         const probs = preds.dataSync(); 
         const classIndex = preds.argMax(1).dataSync()[0];
         
-        return { 
+        return {
             probs: Array.from(probs), 
             classIndex: classIndex 
         };

@@ -48,6 +48,7 @@
         <button id="btn-test">Test Model</button><br/>
         <button id="btn-export">Export Model</button><br/>
         <button id="btn-import">Import Model</button><br/>
+        <button id="btn-report">Training Report</button><br/>
     </div>
 
     <script>
@@ -92,6 +93,23 @@
             btn.onmousedown = () => activeClass = classKey;
             btn.onmouseup = () => activeClass = null;
         });
+            
+        document.getElementById('btn-test').onclick = async () => {
+            activeClass.replace("class", "");
+            animate();
+        };
+            
+        document.getElementById('btn-export').onclick = async () => {
+            console.log(window.app.ExportModel());
+        };
+            
+        document.getElementById('btn-import').onclick = async () => {
+            window.app.ImportModel(); // TODO
+        };
+
+        docuemt.getElementById('btn-report').onclick = async () => {
+            console.log(JSON.stringify(window.app.DisplayConfusionMatrix()));
+        };
 
         function animate() {
             if (activeClass) {
@@ -103,13 +121,15 @@
                 const numericId = activeClass.replace("class", "");
                 document.getElementById(`count-${numericId}`).innerText = capturedDataset[activeClass].length;
             }
+            else
+            {
+                ctx.drawImage(video, 0, 0, 227, 227);
+                const testData = canvas.toDataURL("image/png");
+                window.app.Test(testData).then(res => {
+                    if (res) updateUI(res.probs, res.classIndex);
+                });
+            }
 
-            // Live Inference and Percentage Bolding
-            // if (window.app.trainingStatus === 3) {
-            //     window.app.Test(video).then(res => {
-            //         if (res) updateUI(res.probs, res.classIndex);
-            //     });
-            // }
             requestAnimationFrame(animate);
         }
 

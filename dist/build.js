@@ -55,12 +55,6 @@ var BaseModel = function () {
       }
       this.capturedDataset[key].push(value);
     }
-<<<<<<< Updated upstream
-  }, {
-    key: 'createBackboneModel',
-    value: function createBackboneModel() {
-      return regeneratorRuntime.async(function createBackboneModel$(_context) {
-=======
   }]);
 
   return BaseModel;
@@ -139,7 +133,6 @@ var ML = function (_BaseModel) {
     key: 'loadMobileNet',
     value: function loadMobileNet() {
       return regeneratorRuntime.async(function loadMobileNet$(_context) {
->>>>>>> Stashed changes
         while (1) {
           switch (_context.prev = _context.next) {
             case 0:
@@ -345,14 +338,6 @@ var ML = function (_BaseModel) {
       }, null, this, [[8, 27, 31, 39], [32,, 34, 38]]);
     }
   }, {
-<<<<<<< Updated upstream
-    key: 'trainModel',
-    value: function trainModel(trainData, epochs, batchSize_, lr) {
-      var _this = this;
-
-      var xs, ys, batchSize, LEARNING_RATE, optimizer;
-      return regeneratorRuntime.async(function trainModel$(_context9) {
-=======
     key: 'stopTraining',
     value: function stopTraining() {
       return regeneratorRuntime.async(function stopTraining$(_context6) {
@@ -394,7 +379,6 @@ var ML = function (_BaseModel) {
 
       var xs, ys, batchSize, LEARNING_RATE, optimizer;
       return regeneratorRuntime.async(function StartTraining$(_context11) {
->>>>>>> Stashed changes
         while (1) {
           switch (_context9.prev = _context9.next) {
             case 0:
