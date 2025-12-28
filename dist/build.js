@@ -55,10 +55,91 @@ var BaseModel = function () {
       }
       this.capturedDataset[key].push(value);
     }
+<<<<<<< Updated upstream
   }, {
     key: 'createBackboneModel',
     value: function createBackboneModel() {
       return regeneratorRuntime.async(function createBackboneModel$(_context) {
+=======
+  }]);
+
+  return BaseModel;
+}();
+
+var ML = function (_BaseModel) {
+  _inherits(ML, _BaseModel);
+
+  function ML() {
+    _classCallCheck(this, ML);
+
+    // Initiate variables
+    // this.infoTexts = [];
+    var _this = _possibleConstructorReturn(this, (ML.__proto__ || Object.getPrototypeOf(ML)).call(this));
+
+    _this.training = -1; // -1 when no class is being captured
+    _this.videoPlaying = false;
+    // this.exampleCounts = new Array(NUM_CLASSES).fill(0);
+    _this.modelTrained = false;
+    _this.embeddingSize = 1000;
+    _this.trainDataset = {};
+    _this.model = null;
+    _this.modelIsImported = false;
+    _this.trainingStatus = 0; // 0: not trained, 1: training, 2: training stopped, 3: trained , 4: imported
+
+    _this.canvas = document.getElementById("canvas");
+    _this.ctx = canvas.getContext("2d");
+
+    // Initiate the page (load mobilenet, etc.)
+    _this.loadMobileNet();
+
+    // Get the video element
+    _this.video = document.getElementsByTagName('video')[0];
+
+    // Create training buttons and info texts    
+    // for (let i = 0; i < NUM_CLASSES; i++) {
+    //   const div = document.createElement('div');
+    //   document.body.appendChild(div);
+    //   div.style.marginBottom = '10px';
+    //   div.style.marginTop = '16px';
+
+    //   // Create training button
+    //   const button = document.createElement('button')
+    //   button.innerText = "Capture class " + i;
+    //   div.appendChild(button);
+
+    //   // Listen for mouse events when clicking the button
+    //   button.addEventListener('mousedown', () => this.training = i);
+    //   button.addEventListener('mouseup', () => this.training = -1);
+
+    //   // Create info text
+    //   const infoText = document.createElement('span')
+    //   infoText.innerText = " No examples added";
+    //   div.appendChild(infoText);
+    //   // this.infoTexts.push(infoText);
+    // }
+
+
+    // Setup webcam
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(function (stream) {
+      _this.video.srcObject = stream;
+      _this.video.width = IMAGE_SIZE;
+      _this.video.height = IMAGE_SIZE;
+
+      _this.video.addEventListener('playing', function () {
+        return _this.videoPlaying = true;
+      });
+      _this.video.addEventListener('paused', function () {
+        return _this.videoPlaying = false;
+      });
+    });
+    return _this;
+  }
+
+  _createClass(ML, [{
+    key: 'loadMobileNet',
+    value: function loadMobileNet() {
+      return regeneratorRuntime.async(function loadMobileNet$(_context) {
+>>>>>>> Stashed changes
         while (1) {
           switch (_context.prev = _context.next) {
             case 0:
@@ -264,12 +345,56 @@ var BaseModel = function () {
       }, null, this, [[8, 27, 31, 39], [32,, 34, 38]]);
     }
   }, {
+<<<<<<< Updated upstream
     key: 'trainModel',
     value: function trainModel(trainData, epochs, batchSize_, lr) {
       var _this = this;
 
       var xs, ys, batchSize, LEARNING_RATE, optimizer;
       return regeneratorRuntime.async(function trainModel$(_context9) {
+=======
+    key: 'stopTraining',
+    value: function stopTraining() {
+      return regeneratorRuntime.async(function stopTraining$(_context6) {
+        while (1) {
+          switch (_context6.prev = _context6.next) {
+            case 0:
+              if (!(this.trainingStatus === 1)) {
+                _context6.next = 3;
+                break;
+              }
+
+              this.trainingStatus = 2; // set status to training stopped
+              return _context6.abrupt('return', true);
+
+            case 3:
+              return _context6.abrupt('return', false);
+
+            case 4:
+            case 'end':
+              return _context6.stop();
+          }
+        }
+      }, null, this);
+    }
+  }, {
+    key: 'reportTrainingDone',
+    value: function reportTrainingDone() {
+      console.log("TrainingDone");
+    }
+  }, {
+    key: 'reportProgress',
+    value: function reportProgress(epoch, loss, accuracy) {
+      console.log("ReportProgress: " + epoch + ", " + loss + ", " + accuracy);
+    }
+  }, {
+    key: 'StartTraining',
+    value: function StartTraining(trainData, epochs, batchSize_, lr) {
+      var _this3 = this;
+
+      var xs, ys, batchSize, LEARNING_RATE, optimizer;
+      return regeneratorRuntime.async(function StartTraining$(_context11) {
+>>>>>>> Stashed changes
         while (1) {
           switch (_context9.prev = _context9.next) {
             case 0:
@@ -687,12 +812,16 @@ var Main = function (_BaseModel) {
     }
   }]);
 
-  return Main;
+  return ML;
 }(BaseModel);
 
+<<<<<<< Updated upstream
 window.addEventListener('load', function () {
   window.app = new Main();
 });
+=======
+window.ML = ML;
+>>>>>>> Stashed changes
 
 },{"@babel/polyfill":2,"@tensorflow-models/mobilenet":11,"@tensorflow/tfjs":241}],2:[function(require,module,exports){
 (function (global){

@@ -1,75 +1,138 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Teachable Machine Boilerplate</title>
+    <title>Teachable Machine Abstracted</title>
     <script src="dist/build.js"></script>
 </head>
 <body>
-    <canvas id="canvas" style="transform: scaleX(-1); display: none;"></canvas>
-    <video autoplay playsinline width="640" height="480" style="transform: scaleX(-1);"></video>
+    <video id="webcam" playsinline width="227" height="227" style="transform: scaleX(-1); background: #000;"></video>
+    <canvas id="hiddenCanvas" width="227" height="227" style="display:none;"></canvas>
 
-    <div>
-        <button id="class-0-button">Class 0</button>
-        <span id="class-0-info" style="margin-left: 8px;">0</span>
+    <div style="margin: 20px 0;">
+        <button id="btn-start">1. Start Camera</button>
     </div>
 
-    <div style="margin-top: 16px;">
-        <button id="class-1-button">Class 1</button>
-        <span id="class-1-info" style="margin-left: 8px;">0</span>
-    </div>
-    
-    <div style="margin-top: 16px;">
-        <button id="class-2-button">Class 2</button>
-        <span id="class-2-info" style="margin-left: 8px;">0</span>
-    </div>
-
-    <!-- Hyperparameters -->
-    <div style="margin-top: 16px;">
-        <input id="epochs-input" type="number" min="1">
-        <span id="class-3-info" style="margin-left: 8px;">Epochs</span>
-    </div>
-
-        <div style="margin-top: 16px;">
-        <input id="batch-size-input" type="number" min="1">
-        <span id="class-3-info" style="margin-left: 8px;">Batch Size</span>
+    <div id="controls">
+        <div class="class-row">
+            <button class="capture-btn" data-class="0">Capture Class 0</button>
+            <span id="count-0">0</span> examples
+        </div>
+        <div class="class-row">
+            <button class="capture-btn" data-class="1">Capture Class 1</button>
+            <span id="count-1">0</span> examples
+        </div>
+        <div class="class-row">
+            <button class="capture-btn" data-class="2">Capture Class 2</button>
+            <span id="count-2">0</span> examples
+        </div>
+        <div class="class-row">
+            <button class="capture-btn" data-class="3">Capture Class 3</button>
+            <span id="count-3">0</span> examples
+        </div>
     </div>
 
-
-        <div style="margin-top: 16px;">
-        <input id="learning-rate-input" type="number" step="0.0001" min="0.0001">
-        <span id="class-3-info" style="margin-left: 8px;">Learning Rate</span>
+    <div id="results" style="margin-top: 20px; font-family: monospace;">
+        <strong>Live Predictions:</strong>
+        <div id="prob-0">Class 0: 0%</div>
+        <div id="prob-1">Class 1: 0%</div>
+        <div id="prob-2">Class 2: 0%</div>
+        <div id="prob-3">Class 3: 0%</div>
     </div>
 
-
-
-    <!-- Train Model Button -->
-    <div style="margin-top: 16px;">
-        <button onclick="window.app.trainModel(window.app.capturedDataset,20, 32, .0001)">Train Model</button>
-        <!-- <span style="margin-left: 8px;">Idle</span> -->
+    <div style="margin-top: 20px;">
+        <button onclick="handleTrain()">2. Train Model</button>
+        <button onclick="window.app.StopTraining()">Stop</button>
     </div>
 
-    <div style="margin-top: 16px;">
-        <button onclick="window.app.model.save('downloads://my-model')">Save Model</button>
+    <div style="margin: 20px 0;">
+        <button id="btn-test">Test Model</button><br/>
+        <button id="btn-export">Export Model</button><br/>
+        <button id="btn-import">Import Model</button><br/>
     </div>
 
-    <div style="margin-top: 16px;">
-        <input type="file" id="model-file-input" accept=".json" />
-        <input type="file" id="weights-file-input" multiple />
-        <button id="load-button">Load Model</button>
-    </div>
+    <script>
+        // Initializing with string keys as requested
+        let capturedDataset = { 
+            "class0": [], 
+            "class1": [], 
+            "class2": [], 
+            "class3": [] 
+        };
+        let activeClass = null; // Changed to null to check for string values
 
-    <div style="margin-top: 16px;">
-        <button id="confusion-matrix">confusion matrix</button>
-    </div>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('hiddenCanvas');
+        const ctx = canvas.getContext('2d');
 
-    <!-- Stop Training Button -->
-    <div style="margin-top: 16px;">
-        <button id="stop-training" onclick="window.app.stopTraining()">Stop Training</button>
-    </div>
+        window.addEventListener('load', () => {
+            window.app = new window.ML();
+            window.app.loadMobileNet();
+        });
 
+        document.getElementById('btn-start').onclick = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({video: true});
+                video.srcObject = stream;
+                
+                // Wait for the video to be ready before playing
+                video.onloadedmetadata = () => {
+                    video.play().then(() => {
+                        console.log("Webcam started successfully");
+                        animate();
+                    }).catch(err => console.error("Video play interrupted:", err));
+                };
+            } catch (err) {
+                console.error("Error accessing webcam:", err);
+            }
+        };
 
+        // Capture Logic & Counter Updates
+        document.querySelectorAll('.capture-btn').forEach(btn => {
+            const classKey = "class" + btn.getAttribute('data-class'); // e.g., "class0"
+            btn.onmousedown = () => activeClass = classKey;
+            btn.onmouseup = () => activeClass = null;
+        });
+
+        function animate() {
+            if (activeClass) {
+                ctx.drawImage(video, 0, 0, 227, 227);
+                const dataURL = canvas.toDataURL("image/png");
+                capturedDataset[activeClass].push(dataURL);
+                
+                // Update the span using the numeric part of the key
+                const numericId = activeClass.replace("class", "");
+                document.getElementById(`count-${numericId}`).innerText = capturedDataset[activeClass].length;
+            }
+
+            // Live Inference and Percentage Bolding
+            // if (window.app.trainingStatus === 3) {
+            //     window.app.Test(video).then(res => {
+            //         if (res) updateUI(res.probs, res.classIndex);
+            //     });
+            // }
+            requestAnimationFrame(animate);
+        }
+
+        function updateUI(probs, maxIndex) {
+            probs.forEach((prob, i) => {
+                const element = document.getElementById(`prob-${i}`);
+                const percentage = (prob * 100).toFixed(1);
+                element.innerText = `Class ${i}: ${percentage}%`;
+                
+                // Bold the highest value
+                if (i === maxIndex) {
+                    element.style.fontWeight = 'bold';
+                    element.style.color = 'green';
+                } else {
+                    element.style.fontWeight = 'normal';
+                    element.style.color = 'black';
+                }
+            });
+        }
+
+        async function handleTrain() {
+            await window.app.StartTraining(capturedDataset, 20, 32, 0.0001);
+        }
+    </script>
 </body>
 </html>
