@@ -2,6 +2,16 @@ import "@babel/polyfill";
 import * as mobilenetModule from '@tensorflow-models/mobilenet';
 import * as tf from '@tensorflow/tfjs';
 
+function ReportProgress(epoch, accurecy, loss)
+{
+  console.log("ReportProgress(Epoch: " + epoch + ", Accuracy: " + accurecy + ", Loss: " + loss + ")");
+}
+
+function TrainingDone()
+{
+  console.log("TrainingDone")
+}
+
 // Number of classes to classify
 const NUM_CLASSES = 4;
 // Webcam Image size. Must be 227. 
@@ -19,43 +29,6 @@ class ML {
   async loadMobileNet() {
     this.mobilenet = await mobilenetModule.load();
     console.log("MobileNet Loaded");
-  }
-
-  // --- Abstracted Interfaces ---
-
-  async StartTraining(trainingData, epochs, batchSize, lr) {
-    // TODO add ReportProgress() function
-    // TODO add TrainingDone() function
-    this.trainXs = [];
-    this.trainYs = [];
-
-    // Convert the URL object into embeddings
-    await this.convertUrlToEmbedding(trainingData);
-
-    if (this.trainXs.length === 0) return console.error("No data!");
-
-    this.ensureModel(this.trainXs[0].shape[1]);
-
-    const xs = tf.concat(this.trainXs, 0);
-    const ys = tf.concat(this.trainYs, 0);
-
-    const optimizer = tf.train.adam(lr);
-    this.model.compile({ optimizer, loss: 'categoricalCrossentropy', metrics: ['accuracy'] });
-
-    await this.model.fit(xs, ys, {
-      batchSize: Math.min(batchSize, xs.shape[0]),
-      epochs: epochs,
-      callbacks: {
-        onTrainBegin: () => { this.trainingStatus = 1; },
-        onTrainEnd: () => { 
-          this.trainingStatus = 3;
-          console.log("Training Complete");
-        }
-      }
-    });
-
-    xs.dispose();
-    ys.dispose();
   }
 
   ensureModel(inputShape) {
@@ -92,6 +65,43 @@ class ML {
       img.onload = () => resolve(img);
       img.onerror = reject;
     });
+  }
+
+  // --- Abstracted Interfaces ---
+
+  async StartTraining(trainingData, epochs, batchSize, lr) {
+    // TODO add ReportProgress() function
+    // TODO add TrainingDone() function
+    this.trainXs = [];
+    this.trainYs = [];
+
+    // Convert the URL object into embeddings
+    await this.convertUrlToEmbedding(trainingData);
+
+    if (this.trainXs.length === 0) return console.error("No data!");
+
+    this.ensureModel(this.trainXs[0].shape[1]);
+
+    const xs = tf.concat(this.trainXs, 0);
+    const ys = tf.concat(this.trainYs, 0);
+
+    const optimizer = tf.train.adam(lr);
+    this.model.compile({ optimizer, loss: 'categoricalCrossentropy', metrics: ['accuracy'] });
+
+    await this.model.fit(xs, ys, {
+      batchSize: Math.min(batchSize, xs.shape[0]),
+      epochs: epochs,
+      callbacks: {
+        onTrainBegin: () => { this.trainingStatus = 1; },
+        onTrainEnd: () => { 
+          this.trainingStatus = 3;
+          TrainingDone();
+        }
+      }
+    });
+
+    xs.dispose();
+    ys.dispose();
   }
 
   StopTraining() {
