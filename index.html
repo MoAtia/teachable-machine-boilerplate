@@ -67,7 +67,7 @@
 
         window.addEventListener('load', () => {
             window.app = new window.ML();
-            window.app.loadMobileNet();
+            window.app.createBackboneModel();
         });
 
         document.getElementById('btn-start').onclick = async () => {
@@ -108,7 +108,7 @@
         };
 
         document.getElementById('btn-report').onclick = async () => {
-            console.log(JSON.stringify(window.app.DisplayConfusionMatrix()));
+            console.log(JSON.stringify(window.app.displayConfusionMatrix()));
         };
 
         function animate() {
@@ -125,7 +125,7 @@
             {
                 ctx.drawImage(video, 0, 0, 227, 227);
                 const testData = canvas.toDataURL("image/png");
-                window.app.Test(testData).then(res => {
+                window.app.test(video).then(res => {
                     if (res) updateUI(res.probs, res.classIndex);
                 });
             }
@@ -151,7 +151,7 @@
         }
 
         async function handleTrain() {
-            await window.app.StartTraining(capturedDataset, 20, 32, 0.0001);
+            await window.app.startTraining(capturedDataset, 2, 32, 0.0001);
         }
     </script>
 </body>

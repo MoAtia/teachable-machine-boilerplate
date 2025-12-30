@@ -2,9 +2,10 @@ import "@babel/polyfill";
 import * as mobilenetModule from '@tensorflow-models/mobilenet';
 import * as tf from '@tensorflow/tfjs';
 
-function ReportProgress(epoch, accurecy, loss)
+function reportProgress(epoch, epochs, logs)
 {
-  console.log("ReportProgress(Epoch: " + epoch + ", Accuracy: " + accurecy + ", Loss: " + loss + ")");
+  console.log(`Epoch ${epoch + 1} / ${epochs}: loss = ${logs.loss.toFixed(3)}, accuracy = ${logs.acc !== undefined ? logs.acc.toFixed(3) : (logs.accuracy || 0).toFixed(3)}`);
+
 }
 
 function TrainingDone()
@@ -26,12 +27,12 @@ class ML {
     this.trainYs = [];
   }
 
-  async loadMobileNet() {
+  async createBackboneModel() {
     this.mobilenet = await mobilenetModule.load();
     console.log("MobileNet Loaded");
   }
 
-  ensureModel(inputShape) {
+  createClassificationHead(inputShape) {
     if (this.model) return;
     this.model = tf.sequential();
     this.model.add(tf.layers.dense({inputShape: [inputShape], units: 100, activation: 'relu'}));
@@ -69,7 +70,7 @@ class ML {
 
   // --- Abstracted Interfaces ---
 
-  async StartTraining(trainingData, epochs, batchSize, lr) {
+  async startTraining(trainingData, epochs, batchSize, lr) {
     // TODO add ReportProgress() function
     // TODO add TrainingDone() function
     this.trainXs = [];
@@ -80,7 +81,7 @@ class ML {
 
     if (this.trainXs.length === 0) return console.error("No data!");
 
-    this.ensureModel(this.trainXs[0].shape[1]);
+    this.createClassificationHead(this.trainXs[0].shape[1]);
 
     const xs = tf.concat(this.trainXs, 0);
     const ys = tf.concat(this.trainYs, 0);
@@ -93,6 +94,10 @@ class ML {
       epochs: epochs,
       callbacks: {
         onTrainBegin: () => { this.trainingStatus = 1; },
+        onEpochEnd: async (epoch, logs) => {
+          reportProgress(epoch, epochs, logs);
+          // await tf.nextFrame();
+        },
         onTrainEnd: () => { 
           this.trainingStatus = 3;
           TrainingDone();
@@ -104,30 +109,59 @@ class ML {
     ys.dispose();
   }
 
-  StopTraining() {
+
+  stopTraining() {
     if (this.trainingStatus !== 1) return false;
     if (this.model) this.model.stopTraining = true;
     this.trainingStatus = 2;
     return true;
   }
 
-  DisplayConfusionMatrix()
+  displayConfusionMatrix()
   {
-    // TODO return Data to be presented
+    
+    // Stack examples
+    const xs = tf.concat(this.trainXs, 0);
+    const ys = tf.concat(this.trainYs, 0);
+
+    // Get the predictions from the model
+    const rawPredictions = this.model.predict(xs);
+
+    rawPredictions.print();
+
+    const predictedClassIndices = tf.argMax(rawPredictions, 1);
+    console.log(predictedClassIndices)
+
+    const trueClassIndices = tf.argMax(ys, 1);
+    console.log(trueClassIndices)
+    // trueClassIndices.max().print();
+
+    const maxTrueClassIndex = tf.max(trueClassIndices).dataSync()[0];
+    console.log("Max true class index:", maxTrueClassIndex);
+    
+    const confusionMatrix = tf.math.confusionMatrix(
+      trueClassIndices,
+      predictedClassIndices,
+      4
+    );
+
+    // Print the resulting Confusion Matrix Tensor
+    confusionMatrix.print();
+    return confusionMatrix.dataSync();
   }
 
-  async ExportModel() {
+  async exportModel() {
     await this.model.save('downloads://my-model');
     return true;
   }
 
-  async ImportModel(jsonFile, weightsFiles) {
+  async importModel(jsonFile, weightsFiles) {
     this.model = await tf.loadLayersModel(tf.io.browserFiles([jsonFile, ...weightsFiles]));
     this.trainingStatus = 3;
     return true;
   }
 
-  async Test(source) { // TODO change the logic to accept image URL as input
+  async test(source) { // TODO change the logic to accept image URL as input
     if (!this.model) return null;
     
     return tf.tidy(() => {
