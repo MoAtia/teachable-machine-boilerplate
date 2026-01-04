@@ -153,6 +153,16 @@
         async function handleTrain() {
             await window.app.startTraining(capturedDataset, 2, 32, 0.0001);
         }
+
+        function reportProgress(epoch, epochs, logs)
+        {
+            console.log(`Epoch ${epoch + 1} / ${epochs}: loss = ${logs.loss.toFixed(3)}, accuracy = ${logs.acc !== undefined ? logs.acc.toFixed(3) : (logs.accuracy || 0).toFixed(3)}`);
+        }
+
+        function TrainingDone()
+        {
+            console.log("TrainingDone")
+        }
     </script>
 </body>
 </html>

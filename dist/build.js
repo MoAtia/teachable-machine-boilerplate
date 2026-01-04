@@ -19,14 +19,6 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-function reportProgress(epoch, epochs, logs) {
-  console.log('Epoch ' + (epoch + 1) + ' / ' + epochs + ': loss = ' + logs.loss.toFixed(3) + ', accuracy = ' + (logs.acc !== undefined ? logs.acc.toFixed(3) : (logs.accuracy || 0).toFixed(3)));
-}
-
-function TrainingDone() {
-  console.log("TrainingDone");
-}
-
 // Number of classes to classify
 var NUM_CLASSES = 4;
 // Webcam Image size. Must be 227. 
@@ -278,8 +270,6 @@ var ML = function () {
         while (1) {
           switch (_context6.prev = _context6.next) {
             case 0:
-              // TODO add ReportProgress() function
-              // TODO add TrainingDone() function
               this.trainXs = [];
               this.trainYs = [];
 
@@ -318,9 +308,7 @@ var ML = function () {
                       while (1) {
                         switch (_context5.prev = _context5.next) {
                           case 0:
-                            reportProgress(epoch, epochs, logs);
-                            // await tf.nextFrame();
-
+                            window.X_ReportProgress(epoch, epochs, logs);
                           case 1:
                           case 'end':
                             return _context5.stop();
@@ -330,7 +318,7 @@ var ML = function () {
                   },
                   onTrainEnd: function onTrainEnd() {
                     _this2.trainingStatus = 3;
-                    TrainingDone();
+                    window.X_TrainingDone();
                   }
                 }
               }));
@@ -387,86 +375,152 @@ var ML = function () {
   }, {
     key: 'exportModel',
     value: function exportModel() {
-      return regeneratorRuntime.async(function exportModel$(_context7) {
-        while (1) {
-          switch (_context7.prev = _context7.next) {
-            case 0:
-              _context7.next = 2;
-              return regeneratorRuntime.awrap(this.model.save('downloads://my-model'));
+  var _this = this; // Capture 'this' for the save handler
+  var modelData = null;
 
-            case 2:
-              return _context7.abrupt('return', true);
+  return regeneratorRuntime.async(function exportModel$(_context7) {
+    while (1) {
+      switch (_context7.prev = _context7.next) {
+        case 0:
+          _context7.next = 2;
+          
+          // REPLACED: Changed 'downloads://' to withSaveHandler
+          return regeneratorRuntime.awrap(this.model.save(tf.io.withSaveHandler(function (artifacts) {
+            modelData = artifacts; // Store the weights and topology in our variable
+            return Promise.resolve({ modelArtifactsInfo: artifacts.modelArtifactsInfo });
+          })));
 
-            case 3:
-            case 'end':
-              return _context7.stop();
-          }
-        }
-      }, null, this);
+        case 2:
+          // REPLACED: Instead of returning 'true', return the captured data
+          return _context7.abrupt('return', modelData);
+
+        case 3:
+        case 'end':
+          return _context7.stop();
+      }
     }
+  }, null, this);
+}
   }, {
     key: 'importModel',
-    value: function importModel(jsonFile, weightsFiles) {
-      return regeneratorRuntime.async(function importModel$(_context8) {
-        while (1) {
-          switch (_context8.prev = _context8.next) {
-            case 0:
-              _context8.next = 2;
-              return regeneratorRuntime.awrap(tf.loadLayersModel(tf.io.browserFiles([jsonFile].concat(_toConsumableArray(weightsFiles)))));
+    value: function importModel(modelTopology, weightSpecs, weightData) {
+  var cleanTopology, cleanSpecs;
+  return regeneratorRuntime.async(function importModel$(_context8) {
+    while (1) {
+      switch (_context8.prev = _context8.next) {
+        // Inside your transpiled importModel Switch
+case 0:
+  cleanTopology = modelTopology;
+  
+  // Normalize Topology wrapper
+  if (cleanTopology.class_name === 'Sequential' && Array.isArray(cleanTopology.config)) {
+    cleanTopology.config = { layers: Array.from(cleanTopology.config) };
+  }
 
-            case 2:
-              this.model = _context8.sent;
+  // THE FIX: Clean the weight specs
+  cleanSpecs = Array.from(weightSpecs).map(function(spec) {
+    return {
+      name: spec.name,
+      dtype: spec.dtype || 'float32',
+      // We filter out any undefined/empty values and ensure they are numbers
+      shape: Array.from(spec.shape).filter(function(s) { 
+          return s !== undefined; 
+      }).map(Number)
+    };
+  });
 
-              this.trainingStatus = 3;
-              return _context8.abrupt('return', true);
+  _context8.next = 4;
+  return regeneratorRuntime.awrap(window.tf.loadLayersModel(window.tf.io.fromMemory({
+    modelTopology: cleanTopology,
+    weightSpecs: cleanSpecs,
+    weightData: weightData
+  })));
 
-            case 5:
-            case 'end':
-              return _context8.stop();
-          }
-        }
-      }, null, this);
+        case 4:
+          this.model = _context8.sent;
+          this.trainingStatus = 3;
+          console.log("Model imported successfully.");
+          return _context8.abrupt('return', true);
+
+        case 8:
+        case 'end':
+          return _context8.stop();
+      }
     }
+  }, null, this);
+}
   }, {
     key: 'test',
     value: function test(source) {
-      var _this3 = this;
+  var _this3 = this;
+  var imgElement;
 
-      return regeneratorRuntime.async(function test$(_context9) {
-        while (1) {
-          switch (_context9.prev = _context9.next) {
-            case 0:
-              if (this.model) {
-                _context9.next = 2;
-                break;
-              }
-
-              return _context9.abrupt('return', null);
-
-            case 2:
-              return _context9.abrupt('return', tf.tidy(function () {
-                var image = tf.fromPixels(source);
-                var logits = _this3.mobilenet.infer(image, 'conv_preds');
-                var emb = logits.as2D(1, -1);
-                var preds = _this3.model.predict(emb);
-
-                // Convert tensor to array
-                var probs = preds.dataSync();
-                var classIndex = preds.argMax(1).dataSync()[0];
-
-                return {
-                  probs: Array.from(probs),
-                  classIndex: classIndex
-                };
-              }));
-
-            case 3:
-            case 'end':
-              return _context9.stop();
+  return regeneratorRuntime.async(function test$(_context9) {
+    while (1) {
+      switch (_context9.prev = _context9.next) {
+        case 0:
+          if (this.model) {
+            _context9.next = 2;
+            break;
           }
-        }
-      }, null, this);
+          return _context9.abrupt('return', null);
+
+        case 2:
+          // --- NEW: LOGIC TO HANDLE URL STRINGS ---
+          if (typeof source !== 'string') {
+            _context9.next = 7; // Skip to prediction if already an element
+            break;
+          }
+
+          _context9.next = 5;
+          return regeneratorRuntime.awrap(new Promise(function (resolve, reject) {
+            var img = new Image();
+            img.crossOrigin = 'anonymous'; // Prevents CORS errors in the iframe
+            img.onload = function () { return resolve(img); };
+            img.onerror = function () { return reject(new Error("Image Load Failed")); };
+            img.src = source;
+          }));
+
+        case 5:
+          imgElement = _context9.sent;
+          _context9.next = 8; // Proceed to prediction
+          break;
+
+        case 7:
+          imgElement = source; // source was already an <img> or <canvas>
+
+        case 8:
+          // --- PREDICTION LOGIC ---
+          return _context9.abrupt('return', window.tf.tidy(function () {
+            
+            // --- THE FIX: Try browser namespace first, then fallback ---
+            var fromPixels = window.tf.browser ? window.tf.browser.fromPixels : window.tf.fromPixels;
+            
+            if (typeof fromPixels !== 'function') {
+               throw new Error("tf.fromPixels not found. Ensure tfjs is fully loaded.");
+            }
+
+            var image = fromPixels(imgElement);
+            var logits = _this3.mobilenet.infer(image, 'conv_preds');
+            var emb = logits.as2D(1, -1);
+            var preds = _this3.model.predict(emb);
+
+            var probs = preds.dataSync();
+            var classIndex = preds.argMax(1).dataSync()[0];
+
+            return {
+              probs: Array.from(probs),
+              classIndex: classIndex
+            };
+          }));
+
+        case 9:
+        case 'end':
+          return _context9.stop();
+      }
     }
+  }, null, this);
+}
   }]);
 
   return ML;
